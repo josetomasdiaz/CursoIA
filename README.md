@@ -44,11 +44,11 @@ Criterios aplicados:
 ## Estructura
 
 ```
-index.html        UI: panel de métricas, formulario, tablero Kanban y asistente de contacto
+index.html        UI: captura, panel de métricas, formulario, Kanban y asistente de contacto
 js/storage.js     Storage Controller: CRUD sobre localStorage con esquema versionado
 js/metrics.js     Métricas del embudo: funciones puras sobre la lista de leads
 js/ui.js          Vista: iconos, estilos por prioridad, toasts, tarjetas y panel
-js/gemini.js      Gemini API Service: los dos prompts, llamada HTTP y validación del JSON
+js/gemini.js      Gemini API Service: los tres prompts, llamada HTTP y validación del JSON
 js/app.js         Main App: orquesta eventos de la UI con storage, métricas y el servicio de IA
 ```
 
