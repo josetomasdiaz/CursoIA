@@ -48,6 +48,9 @@ function normalizeLead(lead) {
         mensajeTono: lead.mensajeTono ?? null,
         mensajeGancho: lead.mensajeGancho ?? null,
         mensajeEn: lead.mensajeEn ?? null,
+        // Procedencia: manual o extraído de una conversación pegada
+        origen: lead.origen === 'conversacion' ? 'conversacion' : 'manual',
+        canalOrigen: lead.canalOrigen ?? null,
         createdAt: Number(lead.createdAt) || Date.now()
     };
 }
@@ -112,13 +115,15 @@ export function getLeadById(id) {
 }
 
 /** Crea un lead nuevo, siempre en estado no_calificado. */
-export function saveLead({ nombre, curso, notas }) {
+export function saveLead({ nombre, curso, notas, origen, canalOrigen }) {
     const leads = readRaw();
     const newLead = normalizeLead({
         id: newId(),
         nombre,
         curso,
         notas,
+        origen,
+        canalOrigen,
         estado: 'no_calificado',
         createdAt: Date.now()
     });

@@ -149,7 +149,7 @@ export function renderMetrics(metrics, segments) {
     return `
         <div class="bg-surface border border-line rounded-xl p-5 flex flex-col gap-4">
             <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                ${kpiCard('Prospectos', String(metrics.total), `${metrics.sinCalificar} sin calificar`)}
+                ${kpiCard('Prospectos', String(metrics.total), `${metrics.sinCalificar} sin calificar${metrics.desdeConversacion ? ` · ${metrics.desdeConversacion} desde chat` : ''}`)}
                 ${kpiCard('Cobertura IA', `${metrics.cobertura}%`, `${metrics.calificados} calificados`, 'text-grape-300')}
                 ${kpiCard('Score promedio', metrics.scorePromedio === null ? '--' : String(metrics.scorePromedio), 'sobre 100', 'text-gold-500')}
                 ${kpiCard('Por contactar', String(metrics.pendientesContacto), `${metrics.contactados} con mensaje listo`, 'text-coral-500')}

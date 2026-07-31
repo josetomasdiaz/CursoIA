@@ -9,7 +9,7 @@ import {
 import { computeMetrics, distributionSegments } from './metrics.js';
 import { createCardHTML, renderEmptyState, renderMetrics, renderSegmented, showToast, ICONS } from './ui.js';
 import {
-    analyzeLeadWithGemini, draftOutreachWithGemini,
+    analyzeLeadWithGemini, draftOutreachWithGemini, extractLeadFromConversation,
     getStoredApiKey, setStoredApiKey, CANALES, TONOS
 } from './gemini.js';
 
@@ -24,6 +24,12 @@ const formTitle = document.getElementById('form-title');
 const submitLabel = document.getElementById('submit-label');
 const cancelEditBtn = document.getElementById('cancel-edit-btn');
 const seedBtn = document.getElementById('seed-btn');
+const autoScore = document.getElementById('auto-score');
+
+const pasteInput = document.getElementById('paste-input');
+const pasteBtn = document.getElementById('paste-btn');
+const pasteBtnLabel = document.getElementById('paste-btn-label');
+const pasteStatus = document.getElementById('paste-status');
 
 const apiKeyInput = document.getElementById('api-key-input');
 const saveKeyBtn = document.getElementById('save-key-btn');
@@ -73,6 +79,7 @@ const ERROR_MESSAGES = {
     API_KEY_MISSING: 'Ingresa tu API Key de Gemini arriba a la derecha.',
     API_KEY_INVALID: 'API Key inválida, expirada o sin permisos. Genera otra en Google AI Studio.',
     NOTES_TOO_SHORT: 'Las notas deben tener al menos 10 caracteres para poder analizar.',
+    CONVERSATION_TOO_SHORT: 'Pega una conversación más larga: con menos de 40 caracteres no hay nada que extraer.',
     RATE_LIMIT_EXCEEDED: 'Cuota superada (429). Se reintentó varias veces; espera un minuto y vuelve a intentar.',
     MODEL_NOT_FOUND: 'El modelo de Gemini no está disponible para esta API Key.',
     JSON_PARSE_ERROR: 'La IA devolvió una respuesta que no es JSON válido. Intenta de nuevo.',
@@ -93,6 +100,9 @@ const analyzing = new Set();
 
 /** Estado del asistente de primer contacto. */
 const composer = { leadId: null, canal: 'WhatsApp', tono: 'Cercano', generando: false };
+
+/** Procedencia de la ficha que está cargada en el formulario, si vino de una conversación. */
+let extraccion = null;
 
 /* ------------------------------ Errores ------------------------------ */
 
@@ -208,11 +218,16 @@ function exitEditMode() {
     formTitle.textContent = 'Nuevo Prospecto';
     submitLabel.textContent = 'Guardar Lead';
     cancelEditBtn.classList.add('hidden');
+    autoScore.checked = true;
+    extraccion = null;
 }
 
-cancelEditBtn.addEventListener('click', exitEditMode);
+cancelEditBtn.addEventListener('click', () => {
+    exitEditMode();
+    pasteStatus.textContent = '';
+});
 
-form.addEventListener('submit', (event) => {
+form.addEventListener('submit', async (event) => {
     event.preventDefault();
 
     const data = {
@@ -226,18 +241,97 @@ form.addEventListener('submit', (event) => {
         return;
     }
 
+    const editando = Boolean(inputId.value);
+    const calificarAhora = autoScore.checked;
+    const procedencia = extraccion;
+    let nuevoId = null;
+
     try {
-        if (inputId.value) {
+        if (editando) {
             updateLead(inputId.value, data);
             showToast('Prospecto actualizado.', 'success');
         } else {
-            saveLead(data);
+            const creado = saveLead({
+                ...data,
+                origen: procedencia ? 'conversacion' : 'manual',
+                canalOrigen: procedencia?.canal ?? null
+            });
+            nuevoId = creado.id;
             showToast('Prospecto registrado.', 'success');
         }
+
         exitEditMode();
+        if (procedencia) {
+            pasteInput.value = '';
+            pasteStatus.textContent = '';
+        }
         renderBoard();
     } catch (error) {
         reportError(error, 'No se pudo guardar el prospecto.');
+        return;
+    }
+
+    // Se califica después de guardar, para que la tarjeta ya exista y muestre el spinner.
+    if (nuevoId && calificarAhora) {
+        await analyzeLead(nuevoId);
+    }
+});
+
+/* ------------------------------ Captura desde conversación ------------------------------ */
+
+const ETIQUETAS_FALTANTES = {
+    nombre: 'el nombre',
+    curso: 'el curso',
+    senales: 'las señales comerciales'
+};
+
+pasteBtn.addEventListener('click', async () => {
+    const apiKey = resolveApiKey();
+    if (!apiKey) {
+        showToast(ERROR_MESSAGES.API_KEY_MISSING, 'error');
+        apiKeyInput.focus();
+        return;
+    }
+
+    pasteBtn.disabled = true;
+    pasteBtnLabel.textContent = 'Extrayendo...';
+    pasteStatus.className = 'text-[11px] text-ink-faint mt-2 leading-relaxed';
+    pasteStatus.textContent = 'Gemini está leyendo la conversación.';
+
+    try {
+        const ficha = await extractLeadFromConversation(pasteInput.value, apiKey, {
+            onProgress: ({ switchingTo }) => {
+                pasteStatus.textContent = switchingTo
+                    ? 'Modelo sobrecargado, probando uno alternativo...'
+                    : 'Modelo sobrecargado, reintentando...';
+            }
+        });
+
+        inputName.value = ficha.nombre;
+        inputCourse.value = ficha.curso;
+        inputNotes.value = ficha.notas;
+        extraccion = { canal: ficha.canal, confianza: ficha.confianza };
+
+        const pendientes = ficha.faltantes.map((campo) => ETIQUETAS_FALTANTES[campo] || campo);
+        const hayDudas = pendientes.length > 0 || ficha.confianza === 'Baja';
+
+        pasteStatus.className = `text-[11px] mt-2 leading-relaxed ${hayDudas ? 'text-gold-500' : 'text-grape-300'}`;
+        pasteStatus.textContent = pendientes.length
+            ? `Ficha lista (confianza ${ficha.confianza}). No pude determinar ${pendientes.join(' ni ')}: complétalo antes de guardar.`
+            : `Ficha lista (confianza ${ficha.confianza}). Revísala y guarda.`;
+
+        // El foco va al primer campo que quedó vacío, que es el que hay que completar a mano.
+        const vacio = [inputName, inputCourse, inputNotes].find((campo) => !campo.value.trim());
+        (vacio || inputName).focus();
+
+        showToast(`Ficha extraída desde ${ficha.canal}.`, 'success');
+    } catch (error) {
+        reportError(error, 'No se pudo leer la conversación.');
+        pasteStatus.className = 'text-[11px] text-coral-500 mt-2 leading-relaxed';
+        pasteStatus.textContent = 'No se pudo extraer. Revisa el aviso y vuelve a intentar.';
+    } finally {
+        pasteBtn.disabled = false;
+        pasteBtnLabel.textContent = 'Extraer con IA';
     }
 });
 
@@ -277,7 +371,9 @@ function hideDraft() {
 
 function openComposer(lead) {
     composer.leadId = lead.id;
-    composer.canal = lead.mensajeCanal || 'WhatsApp';
+    // Si el lead se capturó desde una conversación, se responde por el mismo canal.
+    composer.canal = lead.mensajeCanal
+        || (CANALES.includes(lead.canalOrigen) ? lead.canalOrigen : 'WhatsApp');
     composer.tono = lead.mensajeTono || 'Cercano';
 
     modalLead.textContent = `${lead.nombre} · ${lead.curso} · prioridad ${lead.probabilidad} (${lead.score}/100)`;
@@ -427,6 +523,53 @@ modalCopy.addEventListener('click', async () => {
     }
 });
 
+/* ------------------------------ Calificación ------------------------------ */
+
+/**
+ * Califica un lead con Gemini y persiste el resultado.
+ * Lo usan tanto el botón de la tarjeta como el guardado automático tras extraer una conversación.
+ * @returns {Promise<boolean>} si quedó calificado
+ */
+async function analyzeLead(id) {
+    const lead = getLeadById(id);
+    if (!lead || analyzing.has(id)) return false;
+
+    const apiKey = resolveApiKey();
+    if (!apiKey) {
+        showToast(ERROR_MESSAGES.API_KEY_MISSING, 'error');
+        apiKeyInput.focus();
+        return false;
+    }
+
+    analyzing.add(id);
+    setCardLoading(id, true);
+
+    try {
+        const result = await analyzeLeadWithGemini(lead.curso, lead.notas, apiKey, {
+            onProgress: (info) => setCardRetrying(id, info)
+        });
+
+        updateLead(id, {
+            score: result.score,
+            probabilidad: result.probabilidad,
+            argumento: result.argumento,
+            estado: 'calificado',
+            notasModificadas: false,
+            vecesAnalizado: (lead.vecesAnalizado || 0) + 1,
+            analizadoEn: new Date().toISOString()
+        });
+
+        showToast(`${lead.nombre}: prioridad ${result.probabilidad} (${result.score}/100)`, 'success');
+        return true;
+    } catch (error) {
+        reportError(error, 'No se pudo completar el análisis.');
+        return false;
+    } finally {
+        analyzing.delete(id);
+        renderBoard();
+    }
+}
+
 /* ------------------------------ Acciones de las tarjetas ------------------------------ */
 /* Delegación de eventos: un solo listener para todo el tablero, sobrevive a los re-renders. */
 
@@ -472,40 +615,7 @@ board.addEventListener('click', async (event) => {
     }
 
     if (action === 'analyze') {
-        if (analyzing.has(id)) return;
-
-        const apiKey = resolveApiKey();
-        if (!apiKey) {
-            showToast(ERROR_MESSAGES.API_KEY_MISSING, 'error');
-            apiKeyInput.focus();
-            return;
-        }
-
-        analyzing.add(id);
-        setCardLoading(id, true);
-
-        try {
-            const result = await analyzeLeadWithGemini(lead.curso, lead.notas, apiKey, {
-                onProgress: (info) => setCardRetrying(id, info)
-            });
-
-            updateLead(id, {
-                score: result.score,
-                probabilidad: result.probabilidad,
-                argumento: result.argumento,
-                estado: 'calificado',
-                notasModificadas: false,
-                vecesAnalizado: (lead.vecesAnalizado || 0) + 1,
-                analizadoEn: new Date().toISOString()
-            });
-
-            showToast(`${lead.nombre}: prioridad ${result.probabilidad} (${result.score}/100)`, 'success');
-        } catch (error) {
-            reportError(error, 'No se pudo completar el análisis.');
-        } finally {
-            analyzing.delete(id);
-            renderBoard();
-        }
+        await analyzeLead(id);
     }
 });
 

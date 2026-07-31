@@ -113,6 +113,34 @@ const SCORING_SCHEMA = {
     propertyOrdering: ['score', 'probabilidad', 'argumento']
 };
 
+const EXTRACTION_PROMPT = `Actúas como asistente de un ejecutivo comercial de un bootcamp tecnológico en Chile. Recibes el texto crudo de una conversación (WhatsApp, correo o notas de una llamada) y lo conviertes en una ficha de prospecto para el CRM.
+
+REGLAS
+- No inventes nada. Si un dato no aparece en el texto, devuelve cadena vacía y anótalo en "faltantes".
+- "nombre": el nombre del PROSPECTO, nunca el del vendedor. Si hay dos interlocutores, el prospecto es quien pregunta por el curso o el precio. Usa el nombre tal como aparece; si solo hay nombre de pila, devuélvelo así.
+- "curso": el programa que le interesa, tal como lo nombra la conversación. Si menciona varios, elige aquel sobre el que muestra más interés.
+- "notas": resumen en tercera persona, entre 40 y 80 palabras, en español de Chile. Recoge SOLO las señales comerciales que aparezcan en el texto: rol o cargo, presupuesto o quién paga, urgencia y fechas, dudas u objeciones, y el siguiente paso acordado. Nada de saludos ni relleno. No opines sobre la probabilidad de compra ni asignes puntajes.
+- "canal": WhatsApp, Email, Llamada u Otro, según el formato del texto.
+- "confianza": Alta si el texto trae nombre, curso y al menos dos señales comerciales; Media si falta una de esas cosas; Baja si el texto es muy pobre.
+- "faltantes": lista con los campos que no pudiste determinar. Usa solo estas etiquetas: "nombre", "curso", "senales".
+
+RESTRICCIÓN ABSOLUTA
+Devuelve ÚNICA Y EXCLUSIVAMENTE un objeto JSON válido, sin markdown, sin bloques de código y sin texto adicional.`;
+
+const EXTRACTION_SCHEMA = {
+    type: 'OBJECT',
+    properties: {
+        nombre: { type: 'STRING' },
+        curso: { type: 'STRING' },
+        notas: { type: 'STRING' },
+        canal: { type: 'STRING', enum: ['WhatsApp', 'Email', 'Llamada', 'Otro'] },
+        confianza: { type: 'STRING', enum: ['Alta', 'Media', 'Baja'] },
+        faltantes: { type: 'ARRAY', items: { type: 'STRING' } }
+    },
+    required: ['nombre', 'curso', 'notas', 'canal', 'confianza', 'faltantes'],
+    propertyOrdering: ['nombre', 'curso', 'notas', 'canal', 'confianza', 'faltantes']
+};
+
 const OUTREACH_SCHEMA = {
     type: 'OBJECT',
     properties: {
@@ -325,6 +353,50 @@ export async function analyzeLeadWithGemini(curso, notas, apiKey, options = {}) 
         score,
         probabilidad: probabilidadFromScore(score),
         argumento: data.argumento.trim(),
+        modelo
+    };
+}
+
+/* ------------------------------ Captura desde conversación ------------------------------ */
+
+const MIN_CONVERSATION_LENGTH = 40;
+
+/**
+ * Convierte el texto crudo de una conversación en una ficha de prospecto.
+ * Es el equivalente estático a lo que HubSpot llama Conversation Intelligence:
+ * en vez de digitar la ficha, se pega el chat y el modelo la estructura.
+ *
+ * No guarda nada: devuelve los campos para que el vendedor los revise antes de aceptar.
+ *
+ * @param {string} conversacion
+ * @param {string} apiKey
+ * @returns {Promise<{nombre:string, curso:string, notas:string, canal:string, confianza:string, faltantes:string[], modelo:string}>}
+ * @throws {GeminiError}
+ */
+export async function extractLeadFromConversation(conversacion, apiKey, options = {}) {
+    const key = requireApiKey(apiKey);
+    const texto = String(conversacion || '').trim();
+
+    if (texto.length < MIN_CONVERSATION_LENGTH) throw new GeminiError('CONVERSATION_TOO_SHORT');
+
+    const payload = buildPayload(EXTRACTION_PROMPT, `CONVERSACIÓN\n${texto}`, EXTRACTION_SCHEMA);
+    const { data, modelo } = await callGemini(payload, key, options.onProgress);
+
+    if (typeof data.notas !== 'string' || !data.notas.trim()) {
+        throw new GeminiError('INVALID_SCHEMA', JSON.stringify(data).slice(0, 200));
+    }
+
+    const faltantes = Array.isArray(data.faltantes)
+        ? data.faltantes.filter((item) => typeof item === 'string')
+        : [];
+
+    return {
+        nombre: String(data.nombre || '').trim(),
+        curso: String(data.curso || '').trim(),
+        notas: data.notas.trim(),
+        canal: CANALES.includes(data.canal) ? data.canal : (data.canal === 'Llamada' ? 'Llamada' : 'Otro'),
+        confianza: ['Alta', 'Media', 'Baja'].includes(data.confianza) ? data.confianza : 'Media',
+        faltantes,
         modelo
     };
 }

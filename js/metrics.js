@@ -59,6 +59,7 @@ export function computeMetrics(leads) {
         porPrioridad,
         pendientesContacto: pendientes.length,
         contactados: lista.filter((lead) => Boolean(lead.mensaje)).length,
+        desdeConversacion: lista.filter((lead) => lead.origen === 'conversacion').length,
         siguientes
     };
 }
