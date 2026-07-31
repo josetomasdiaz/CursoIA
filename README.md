@@ -54,6 +54,25 @@ js/app.js         Main App: orquesta eventos de la UI con storage, métricas y e
 
 ## Funcionalidades
 
+### Captura desde conversación
+
+En vez de digitar la ficha, se pega el chat de WhatsApp, el correo o las notas de una llamada,
+y Gemini devuelve nombre, curso y un resumen de las señales comerciales. Es el equivalente
+estático a lo que HubSpot llama *Conversation Intelligence*.
+
+Dos decisiones importantes:
+
+- **No guarda nada solo.** La extracción rellena el formulario y ahí se detiene; el vendedor
+  revisa y recién entonces guarda. Una ficha inventada que entra sola al CRM es peor que no
+  tener la función.
+- **Prefiere el vacío a la invención.** Si el texto no dice el nombre, el campo queda vacío y
+  la app avisa qué falta, en vez de deducirlo. El modelo además reporta su nivel de confianza.
+
+Al guardar, la casilla *Calificar con IA* deja el lead puntuado en el mismo gesto, así que
+pegar una conversación y tener el prospecto priorizado es una sola operación. El canal
+detectado se reutiliza después: si el lead llegó por WhatsApp, el asistente de contacto
+propone responder por WhatsApp.
+
 ### Lead scoring semántico
 
 El núcleo del MVP: Gemini lee las notas de la interacción y devuelve un score de 1 a 100,
@@ -103,7 +122,9 @@ Luego abre `http://localhost:8000`. En producción se sirve desde GitHub Pages.
 1. Consigue una API Key gratuita en <https://aistudio.google.com/apikey>.
 2. Pégala en el campo del encabezado y presiona **Guardar**. Queda solo en tu navegador,
    en `sessionStorage`, y se borra al cerrar la pestaña.
-3. Presiona **Cargar 3 leads de ejemplo** para poblar el tablero.
+3. Presiona **Cargar 3 leads de ejemplo** para poblar el tablero. También puedes pegar una
+   conversación real en **Capturar desde conversación** y presionar *Extraer con IA*: la ficha
+   se completa sola y, al guardar, queda calificada.
 4. En cualquier tarjeta, presiona **Analizar con IA**. Gemini lee las notas y devuelve
    `score`, `probabilidad` y `argumento`; la tarjeta cambia de color y salta a la columna
    de prioridad correspondiente.
@@ -135,6 +156,8 @@ Luego abre `http://localhost:8000`. En producción se sirve desde GitHub Pages.
   "mensajeTono": null,
   "mensajeGancho": null,
   "mensajeEn": null,
+  "origen": "manual | conversacion",
+  "canalOrigen": null,
   "createdAt": 1750000000000
 }
 ```

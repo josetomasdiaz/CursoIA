@@ -117,6 +117,23 @@
     <main class="flex-1 flex overflow-hidden">
         <!-- Panel lateral: formulario -->
         <aside class="w-80 bg-surface border-r border-line p-6 flex flex-col shrink-0 overflow-y-auto">
+            <!-- Captura desde conversación: el chat pegado reemplaza la digitación manual -->
+            <div id="paste-block" class="mb-5 pb-5 border-b border-line">
+                <h2 class="font-bold text-sm text-ink flex items-center gap-2 mb-1.5">
+                    <svg class="w-4 h-4 text-coral-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path></svg>
+                    Capturar desde conversación
+                </h2>
+                <p class="text-[11px] text-ink-faint mb-2.5 leading-relaxed">Pega el chat de WhatsApp o el correo y la IA completa la ficha de abajo.</p>
+
+                <textarea id="paste-input" rows="4" maxlength="6000" class="w-full bg-raised border border-line rounded-lg px-3 py-2.5 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-coral-500 focus:border-coral-500 transition resize-none" placeholder="— Hola, vi el bootcamp de datos...&#10;— Hola Marcela, cuéntame..."></textarea>
+
+                <button type="button" id="paste-btn" class="w-full mt-2 bg-raised border border-coral-500 text-coral-500 text-sm font-semibold py-2 rounded-lg hover:bg-coral-500 hover:text-night transition disabled:opacity-60 disabled:cursor-not-allowed">
+                    <span id="paste-btn-label">Extraer con IA</span>
+                </button>
+
+                <p id="paste-status" class="text-[11px] text-ink-faint mt-2 leading-relaxed"></p>
+            </div>
+
             <h2 id="form-title" class="font-bold text-lg text-ink mb-5">Nuevo Prospecto</h2>
 
             <!-- Enganche: Contenedor del formulario -->
@@ -138,6 +155,11 @@
                     <textarea id="lead-notes" required rows="5" maxlength="2000" class="w-full bg-raised border border-line rounded-lg px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-coral-500 focus:border-coral-500 transition resize-none" placeholder="Presupuesto, urgencia, dudas, quién decide..."></textarea>
                     <p class="text-[11px] text-ink-faint mt-1.5">Mínimo 10 caracteres para poder analizar con IA.</p>
                 </div>
+
+                <label for="auto-score" class="flex items-start gap-2 text-xs text-ink-muted cursor-pointer select-none">
+                    <input type="checkbox" id="auto-score" checked class="mt-0.5 w-4 h-4 accent-coral-500 shrink-0">
+                    <span>Calificar con IA al guardar</span>
+                </label>
 
                 <button type="submit" id="submit-btn" class="mt-1 bg-coral-500 text-night font-bold px-4 py-2.5 rounded-lg hover:bg-coral-400 active:bg-coral-600 transition flex items-center justify-center gap-2 shadow-lg shadow-coral-900/40">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"></path></svg>
