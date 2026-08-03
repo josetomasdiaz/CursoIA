@@ -127,8 +127,45 @@
     <div id="toast-container" class="fixed top-20 right-6 z-50 flex flex-col gap-2"></div>
 
     <main class="flex-1 flex overflow-hidden">
-        <!-- Panel lateral: formulario -->
-        <aside class="w-80 bg-surface border-r border-line p-6 flex flex-col shrink-0 overflow-y-auto">
+
+        <!-- Navegación principal -->
+        <nav class="w-52 bg-surface border-r border-line p-3 flex flex-col shrink-0" aria-label="Navegación principal">
+            <p class="text-[10px] font-bold uppercase tracking-widest text-ink-faint px-3 pt-2 pb-3">Principal</p>
+
+            <button type="button" data-view="dashboard" class="nav-item flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-semibold text-ink-muted hover:text-ink hover:bg-raised transition text-left">
+                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12h4l3 8 4-16 3 8h4"></path></svg>
+                Dashboard
+            </button>
+
+            <button type="button" data-view="leads" class="nav-item flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-semibold text-ink-muted hover:text-ink hover:bg-raised transition text-left">
+                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                Leads
+                <span id="nav-leads-count" class="ml-auto bg-raised text-ink-muted text-[11px] font-bold px-1.5 py-0.5 rounded tabular-nums">0</span>
+            </button>
+
+            <div class="mt-auto px-1 pb-1">
+                <p class="text-[11px] text-ink-faint leading-relaxed">Los datos viven solo en este navegador, en <code class="text-grape-300">localStorage</code>.</p>
+            </div>
+        </nav>
+
+        <!-- Vista: Dashboard -->
+        <section id="view-dashboard" class="flex-1 p-6 overflow-y-auto">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+                <div>
+                    <h2 class="text-xl font-extrabold tracking-tight">Dashboard</h2>
+                    <p class="text-xs text-ink-faint mt-0.5">Estado de la cartera y del embudo</p>
+                </div>
+                <button type="button" id="export-btn" class="flex items-center gap-2 text-sm font-semibold bg-surface border border-line text-ink px-3.5 py-2 rounded-lg hover:border-gold-500 hover:text-gold-500 transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"></path></svg>
+                    Descargar Excel
+                </button>
+            </div>
+            <div id="metrics"></div>
+        </section>
+
+        <!-- Panel deslizante: alta y edición de prospectos -->
+        <div id="lead-panel" class="hidden fixed inset-0 z-40 justify-end bg-night/80 backdrop-blur-sm">
+        <aside class="w-full max-w-sm bg-surface border-l border-line p-6 flex flex-col overflow-y-auto h-full">
             <!-- Captura desde conversación: el chat pegado reemplaza la digitación manual -->
             <div id="paste-block" class="mb-5 pb-5 border-b border-line">
                 <h2 class="font-bold text-sm text-ink flex items-center gap-2 mb-1.5">
@@ -146,7 +183,12 @@
                 <p id="paste-status" class="text-[11px] text-ink-faint mt-2 leading-relaxed"></p>
             </div>
 
-            <h2 id="form-title" class="font-bold text-lg text-ink mb-5">Nuevo Prospecto</h2>
+            <div class="flex items-center justify-between gap-3 mb-5">
+                <h2 id="form-title" class="font-bold text-lg text-ink">Nuevo Prospecto</h2>
+                <button type="button" id="lead-panel-close" class="text-ink-faint hover:text-ink p-1 rounded transition" aria-label="Cerrar">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
 
             <!-- Enganche: Contenedor del formulario -->
             <form id="lead-form" class="flex flex-col gap-4" novalidate>
@@ -183,33 +225,31 @@
                 </button>
             </form>
 
-            <div class="mt-auto pt-6">
-                <div class="border-t border-line pt-5">
-                    <button type="button" id="seed-btn" class="w-full text-sm font-semibold border border-grape-400 text-grape-300 px-3 py-2.5 rounded-lg hover:bg-grape-500 hover:text-ink hover:border-grape-500 transition">
-                        Cargar 3 leads de ejemplo
-                    </button>
-                    <p class="text-[11px] text-ink-faint mt-2.5 leading-relaxed">Los datos se guardan solo en este navegador, en <code class="text-grape-300">localStorage</code>.</p>
-                </div>
-            </div>
         </aside>
+        </div>
 
-        <!-- Tablero Kanban -->
-        <section class="flex-1 p-6 flex flex-col gap-4 overflow-hidden">
+        <!-- Vista: Leads -->
+        <section id="view-leads" class="flex-1 p-6 flex flex-col gap-4 overflow-hidden">
 
-            <!-- Panel de métricas del embudo -->
-            <div id="metrics" class="shrink-0"></div>
-
-            <!-- Barra del tablero: cómo agrupar y exportación -->
             <div class="shrink-0 flex flex-wrap items-center justify-between gap-3">
-                <div class="flex items-center gap-2">
+                <div>
+                    <h2 class="text-xl font-extrabold tracking-tight">Leads</h2>
+                    <p class="text-xs text-ink-faint mt-0.5">Tablero de prospectos priorizados por IA</p>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2">
                     <span class="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Agrupar por</span>
                     <div id="view-toggle" class="flex gap-1 bg-surface border border-line rounded-lg p-1" role="group" aria-label="Agrupar el tablero por"></div>
-                </div>
 
-                <button type="button" id="export-btn" class="flex items-center gap-2 text-sm font-semibold bg-surface border border-line text-ink px-3.5 py-2 rounded-lg hover:border-gold-500 hover:text-gold-500 transition">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"></path></svg>
-                    Descargar Excel
-                </button>
+                    <button type="button" id="seed-btn" class="text-sm font-semibold border border-grape-400 text-grape-300 px-3 py-2 rounded-lg hover:bg-grape-500 hover:text-ink hover:border-grape-500 transition">
+                        Cargar ejemplos
+                    </button>
+
+                    <button type="button" id="new-lead-btn" class="flex items-center gap-2 bg-coral-500 text-night text-sm font-bold px-3.5 py-2 rounded-lg hover:bg-coral-400 active:bg-coral-600 transition shadow-lg shadow-coral-900/40">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"></path></svg>
+                        Nuevo prospecto
+                    </button>
+                </div>
             </div>
 
             <!-- Las columnas se generan desde js/ui.js según la vista elegida -->

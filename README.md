@@ -44,7 +44,7 @@ Criterios aplicados:
 ## Estructura
 
 ```
-index.html        UI: captura, panel de métricas, formulario, Kanban y asistente de contacto
+index.html        UI: navegación, dashboard, tablero de leads y los dos paneles deslizantes
 js/storage.js     Storage Controller: CRUD sobre localStorage con esquema versionado
 js/metrics.js     Métricas del embudo: funciones puras sobre la lista de leads
 js/ui.js          Vista: iconos, estilos por prioridad, toasts, tarjetas y panel
@@ -54,6 +54,18 @@ js/app.js         Main App: orquesta eventos de la UI con storage, métricas y e
 ```
 
 ## Funcionalidades
+
+### Navegación
+
+Dos secciones en el menú lateral: **Dashboard**, con el estado de la cartera y la descarga a
+Excel, y **Leads**, con el tablero Kanban. La sección elegida queda recordada.
+
+El formulario de alta dejó de ocupar una columna fija: ahora vive en un panel deslizante que
+se abre con *Nuevo prospecto* o al editar una tarjeta, y se cierra con la X, con Escape o
+haciendo clic fuera. Eso libera el ancho completo para el tablero, que es lo que de verdad
+hay que mirar. Con el menú de 208px, las cuatro columnas caben desde ~1160px de ancho; antes
+del rediseño hacían falta 1696px y la columna de Prioridad Alta quedaba cortada en cualquier
+notebook.
 
 ### Captura desde conversación
 
