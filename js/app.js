@@ -61,8 +61,22 @@ const modalStatus = document.getElementById('outreach-status');
 const viewToggle = document.getElementById('view-toggle');
 const exportBtn = document.getElementById('export-btn');
 
+const navButtons = [...document.querySelectorAll('.nav-item')];
+const navLeadsCount = document.getElementById('nav-leads-count');
+const secciones = {
+    dashboard: document.getElementById('view-dashboard'),
+    leads: document.getElementById('view-leads')
+};
+
+const leadPanel = document.getElementById('lead-panel');
+const newLeadBtn = document.getElementById('new-lead-btn');
+const leadPanelClose = document.getElementById('lead-panel-close');
+
 const VISTA_KEY = 'edulead_vista';
+const SECCION_KEY = 'edulead_seccion';
 const ETIQUETAS_VISTA = { prioridad: 'Prioridad', etapa: 'Etapa' };
+
+const NAV_ACTIVO = ['bg-raised', 'text-ink', 'border-l-2', 'border-coral-500'];
 
 const ERROR_MESSAGES = {
     API_KEY_MISSING: 'Ingresa tu API Key de Gemini arriba a la derecha.',
@@ -92,6 +106,16 @@ const composer = { leadId: null, canal: 'WhatsApp', tono: 'Cercano', generando: 
 
 /** Procedencia de la ficha que está cargada en el formulario, si vino de una conversación. */
 let extraccion = null;
+
+/** Sección visible: dashboard o leads. */
+let seccion = (() => {
+    try {
+        const guardada = localStorage.getItem(SECCION_KEY);
+        return secciones[guardada] ? guardada : 'dashboard';
+    } catch (error) {
+        return 'dashboard';
+    }
+})();
 
 /** Cómo se agrupan las columnas: por prioridad de la IA o por etapa del proceso. */
 let vista = (() => {
@@ -145,6 +169,59 @@ function resolveApiKey() {
 
 /* ------------------------------ Render ------------------------------ */
 
+/* ------------------------------ Navegación ------------------------------ */
+
+function mostrarSeccion(nombre) {
+    if (!secciones[nombre]) return;
+    seccion = nombre;
+
+    for (const [key, elemento] of Object.entries(secciones)) {
+        elemento.classList.toggle('hidden', key !== nombre);
+    }
+
+    for (const boton of navButtons) {
+        const activo = boton.dataset.view === nombre;
+        boton.classList.toggle('text-ink-muted', !activo);
+        boton.setAttribute('aria-current', activo ? 'page' : 'false');
+        for (const clase of NAV_ACTIVO) boton.classList.toggle(clase, activo);
+    }
+
+    try {
+        localStorage.setItem(SECCION_KEY, nombre);
+    } catch (error) {
+        /* si el navegador bloquea el almacenamiento, la sección simplemente no se recuerda */
+    }
+}
+
+for (const boton of navButtons) {
+    boton.addEventListener('click', () => mostrarSeccion(boton.dataset.view));
+}
+
+/* ------------------------------ Panel de alta y edición ------------------------------ */
+
+function abrirPanelLead() {
+    leadPanel.classList.remove('hidden');
+    leadPanel.classList.add('flex');
+}
+
+function cerrarPanelLead() {
+    leadPanel.classList.add('hidden');
+    leadPanel.classList.remove('flex');
+}
+
+newLeadBtn.addEventListener('click', () => {
+    exitEditMode();
+    pasteStatus.textContent = '';
+    abrirPanelLead();
+    inputName.focus();
+});
+
+leadPanelClose.addEventListener('click', cerrarPanelLead);
+
+leadPanel.addEventListener('click', (event) => {
+    if (event.target === leadPanel) cerrarPanelLead();
+});
+
 /** En qué columna cae un lead según la vista activa. */
 function columnaDe(lead, buckets) {
     if (vista === 'etapa') {
@@ -183,6 +260,7 @@ function renderBoard() {
 
     const metrics = computeMetrics(leads);
     metricsPanel.innerHTML = renderMetrics(metrics, distributionSegments(metrics));
+    navLeadsCount.textContent = String(metrics.total);
 
     // Repinta el spinner de los leads que quedaron analizándose durante el re-render.
     for (const id of analyzing) {
@@ -259,6 +337,7 @@ function enterEditMode(lead) {
     formTitle.textContent = `Editando: ${lead.nombre}`;
     submitLabel.textContent = 'Guardar cambios';
     cancelEditBtn.classList.remove('hidden');
+    abrirPanelLead();
     inputName.focus();
 }
 
@@ -275,6 +354,7 @@ function exitEditMode() {
 cancelEditBtn.addEventListener('click', () => {
     exitEditMode();
     pasteStatus.textContent = '';
+    cerrarPanelLead();
 });
 
 form.addEventListener('submit', async (event) => {
@@ -315,6 +395,9 @@ form.addEventListener('submit', async (event) => {
             pasteInput.value = '';
             pasteStatus.textContent = '';
         }
+        cerrarPanelLead();
+        // El lead nuevo hay que verlo: si estabas en el dashboard, te lleva al tablero.
+        if (nuevoId) mostrarSeccion('leads');
         renderBoard();
     } catch (error) {
         reportError(error, 'No se pudo guardar el prospecto.');
@@ -459,7 +542,9 @@ modal.addEventListener('click', (event) => {
 });
 
 document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && !modal.classList.contains('hidden')) closeComposer();
+    if (event.key !== 'Escape') return;
+    if (!modal.classList.contains('hidden')) closeComposer();
+    else if (!leadPanel.classList.contains('hidden')) cerrarPanelLead();
 });
 
 for (const group of [modalCanal, modalTono]) {
@@ -717,6 +802,7 @@ function init() {
     if (storedKey) apiKeyInput.value = storedKey;
     refreshApiKeyStatus();
     renderComposerControls();
+    mostrarSeccion(seccion);
 
     try {
         renderBoard();

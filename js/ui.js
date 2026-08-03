@@ -211,9 +211,24 @@ export function renderMetrics(metrics, segments) {
           }).join('')
         : `<span class="text-[11px] text-ink-faint">Nadie en espera: todos los leads calificados ya tienen mensaje.</span>`;
 
+    // Embudo por etapa: barras horizontales proporcionales al total de la cartera.
+    const mayorEtapa = Math.max(1, ...ETAPAS.map((etapa) => metrics.porEtapa[etapa] || 0));
+    const embudo = ETAPAS.map((etapa) => {
+        const cantidad = metrics.porEtapa[etapa] || 0;
+        const estilo = STAGE_STYLES[etapa];
+        return `
+            <div class="flex items-center gap-3">
+                <span class="w-32 shrink-0 text-xs ${estilo.accent} truncate">${escapeHTML(etapa)}</span>
+                <div class="flex-1 h-2 bg-raised rounded-full overflow-hidden">
+                    <div class="h-full ${estilo.dot} rounded-full" style="width:${Math.round((cantidad / mayorEtapa) * 100)}%"></div>
+                </div>
+                <span class="w-6 text-right text-xs font-bold tabular-nums text-ink-muted">${cantidad}</span>
+            </div>`;
+    }).join('');
+
     return `
-        <div class="bg-surface border border-line rounded-xl p-4 flex flex-col gap-3.5">
-            <div class="grid grid-cols-2 lg:grid-cols-5 gap-2.5">
+        <div class="flex flex-col gap-5">
+            <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
                 ${kpiCard('Prospectos', String(metrics.total), `${metrics.sinCalificar} sin calificar${metrics.desdeConversacion ? ` · ${metrics.desdeConversacion} desde chat` : ''}`)}
                 ${kpiCard('Cobertura IA', `${metrics.cobertura}%`, `${metrics.calificados} calificados`, 'text-grape-300')}
                 ${kpiCard('Score promedio', metrics.scorePromedio === null ? '--' : String(metrics.scorePromedio), 'sobre 100', 'text-gold-500')}
@@ -221,14 +236,21 @@ export function renderMetrics(metrics, segments) {
                 ${kpiCard('Inscritos', String(metrics.inscritos), `${metrics.conversion}% de conversión`, 'text-coral-500')}
             </div>
 
-            <div class="grid md:grid-cols-2 gap-4">
-                <div>
-                    <p class="text-[11px] font-semibold uppercase tracking-wider text-ink-faint mb-2">Distribución por prioridad</p>
-                    ${barra}
+            <div class="grid lg:grid-cols-2 gap-4">
+                <div class="bg-surface border border-line rounded-xl p-5">
+                    <p class="text-[11px] font-semibold uppercase tracking-wider text-ink-faint mb-3">Embudo por etapa</p>
+                    <div class="flex flex-col gap-2.5">${embudo}</div>
                 </div>
-                <div>
-                    <p class="text-[11px] font-semibold uppercase tracking-wider text-ink-faint mb-2">Contactar ahora</p>
-                    <div class="flex flex-wrap gap-2">${siguientes}</div>
+
+                <div class="bg-surface border border-line rounded-xl p-5 flex flex-col gap-4">
+                    <div>
+                        <p class="text-[11px] font-semibold uppercase tracking-wider text-ink-faint mb-2">Distribución por prioridad</p>
+                        ${barra}
+                    </div>
+                    <div>
+                        <p class="text-[11px] font-semibold uppercase tracking-wider text-ink-faint mb-2">Contactar ahora</p>
+                        <div class="flex flex-wrap gap-2">${siguientes}</div>
+                    </div>
                 </div>
             </div>
         </div>
