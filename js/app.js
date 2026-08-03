@@ -4,10 +4,14 @@
 
 import {
     getLeads, getLeadById, saveLead, updateLead, deleteLead,
-    seedDemoLeads, isStorageAvailable, StorageError
+    seedDemoLeads, isStorageAvailable, StorageError, ETAPAS
 } from './storage.js';
 import { computeMetrics, distributionSegments } from './metrics.js';
-import { createCardHTML, renderEmptyState, renderMetrics, renderSegmented, showToast, ICONS } from './ui.js';
+import {
+    createCardHTML, renderEmptyState, renderMetrics, renderSegmented,
+    renderColumns, VISTAS, showToast, ICONS
+} from './ui.js';
+import { descargarEmbudo } from './export.js';
 import {
     analyzeLeadWithGemini, draftOutreachWithGemini, extractLeadFromConversation,
     getStoredApiKey, setStoredApiKey, CANALES, TONOS
@@ -54,26 +58,11 @@ const modalSave = document.getElementById('outreach-save');
 const modalClose = document.getElementById('outreach-close');
 const modalStatus = document.getElementById('outreach-status');
 
-const columns = {
-    unscored: document.getElementById('col-unscored'),
-    Baja: document.getElementById('col-low'),
-    Media: document.getElementById('col-medium'),
-    Alta: document.getElementById('col-high')
-};
+const viewToggle = document.getElementById('view-toggle');
+const exportBtn = document.getElementById('export-btn');
 
-const counters = {
-    unscored: document.getElementById('count-unscored'),
-    Baja: document.getElementById('count-low'),
-    Media: document.getElementById('count-medium'),
-    Alta: document.getElementById('count-high')
-};
-
-const EMPTY_TEXTS = {
-    unscored: 'Sin prospectos por calificar.',
-    Baja: 'Nada aquí todavía.',
-    Media: 'Nada aquí todavía.',
-    Alta: 'Nada aquí todavía.'
-};
+const VISTA_KEY = 'edulead_vista';
+const ETIQUETAS_VISTA = { prioridad: 'Prioridad', etapa: 'Etapa' };
 
 const ERROR_MESSAGES = {
     API_KEY_MISSING: 'Ingresa tu API Key de Gemini arriba a la derecha.',
@@ -103,6 +92,15 @@ const composer = { leadId: null, canal: 'WhatsApp', tono: 'Cercano', generando: 
 
 /** Procedencia de la ficha que está cargada en el formulario, si vino de una conversación. */
 let extraccion = null;
+
+/** Cómo se agrupan las columnas: por prioridad de la IA o por etapa del proceso. */
+let vista = (() => {
+    try {
+        return VISTAS[localStorage.getItem(VISTA_KEY)] ? localStorage.getItem(VISTA_KEY) : 'prioridad';
+    } catch (error) {
+        return 'prioridad';
+    }
+})();
 
 /* ------------------------------ Errores ------------------------------ */
 
@@ -147,24 +145,40 @@ function resolveApiKey() {
 
 /* ------------------------------ Render ------------------------------ */
 
+/** En qué columna cae un lead según la vista activa. */
+function columnaDe(lead, buckets) {
+    if (vista === 'etapa') {
+        return buckets[lead.etapa] ? lead.etapa : 'Nuevo';
+    }
+    return lead.estado === 'calificado' && buckets[lead.probabilidad] ? lead.probabilidad : 'unscored';
+}
+
 function renderBoard() {
     const leads = getLeads();
-    const buckets = { unscored: [], Baja: [], Media: [], Alta: [] };
+    const columnas = VISTAS[vista];
 
-    for (const lead of leads) {
-        if (lead.estado === 'calificado' && buckets[lead.probabilidad]) {
-            buckets[lead.probabilidad].push(lead);
-        } else {
-            buckets.unscored.push(lead);
-        }
-    }
+    viewToggle.innerHTML = renderSegmented(
+        Object.values(ETIQUETAS_VISTA),
+        ETIQUETAS_VISTA[vista],
+        'vista'
+    );
 
-    for (const [key, column] of Object.entries(columns)) {
-        const grupo = buckets[key];
-        column.innerHTML = grupo.length
+    board.innerHTML = renderColumns(columnas);
+
+    const buckets = {};
+    for (const col of columnas) buckets[col.key] = [];
+    for (const lead of leads) buckets[columnaDe(lead, buckets)].push(lead);
+
+    for (const col of columnas) {
+        // Dentro de cada columna manda el score: primero el lead más caliente.
+        const grupo = buckets[col.key].sort(
+            (a, b) => (b.score || 0) - (a.score || 0) || b.createdAt - a.createdAt
+        );
+
+        document.getElementById(col.colId).innerHTML = grupo.length
             ? grupo.map(createCardHTML).join('')
-            : renderEmptyState(EMPTY_TEXTS[key]);
-        counters[key].textContent = String(grupo.length);
+            : renderEmptyState(col.vacio);
+        document.getElementById(col.countId).textContent = String(grupo.length);
     }
 
     const metrics = computeMetrics(leads);
@@ -175,6 +189,42 @@ function renderBoard() {
         setCardLoading(id, true);
     }
 }
+
+viewToggle.addEventListener('click', (event) => {
+    const boton = event.target.closest('button[data-value]');
+    if (!boton) return;
+
+    const nueva = Object.keys(ETIQUETAS_VISTA).find((key) => ETIQUETAS_VISTA[key] === boton.dataset.value);
+    if (!nueva || nueva === vista) return;
+
+    vista = nueva;
+    try {
+        localStorage.setItem(VISTA_KEY, vista);
+    } catch (error) {
+        /* si el navegador bloquea el almacenamiento, la vista simplemente no se recuerda */
+    }
+    renderBoard();
+});
+
+exportBtn.addEventListener('click', () => {
+    const leads = getLeads();
+    if (!leads.length) {
+        showToast('No hay prospectos que exportar todavía.', 'warning');
+        return;
+    }
+
+    try {
+        const formato = descargarEmbudo(leads, computeMetrics(leads));
+        showToast(
+            formato === 'xlsx'
+                ? 'Embudo descargado en Excel.'
+                : 'SheetJS no cargó: se descargó un CSV que Excel abre igual.',
+            formato === 'xlsx' ? 'success' : 'warning'
+        );
+    } catch (error) {
+        reportError(error, 'No se pudo generar el archivo.');
+    }
+});
 
 function analyzeButtonFor(id) {
     const card = board.querySelector(`[data-id="${CSS.escape(id)}"]`);
@@ -616,6 +666,30 @@ board.addEventListener('click', async (event) => {
 
     if (action === 'analyze') {
         await analyzeLead(id);
+    }
+});
+
+/* Cambio de etapa desde la tarjeta. */
+board.addEventListener('change', (event) => {
+    const select = event.target.closest('select[data-action="etapa"]');
+    if (!select) return;
+
+    const card = select.closest('[data-id]');
+    const lead = card && getLeadById(card.dataset.id);
+    if (!lead) {
+        renderBoard();
+        return;
+    }
+
+    const nueva = select.value;
+    if (!ETAPAS.includes(nueva) || nueva === lead.etapa) return;
+
+    try {
+        updateLead(lead.id, { etapa: nueva });
+        renderBoard();
+        showToast(`${lead.nombre} pasó a ${nueva}.`, nueva === 'Inscrito' ? 'success' : 'info');
+    } catch (error) {
+        reportError(error, 'No se pudo cambiar la etapa.');
     }
 });
 

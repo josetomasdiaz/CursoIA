@@ -6,6 +6,8 @@
  * fondo #020202 y superficies #0C0C0C. Los tokens viven en tailwind.config, en index.html.
  */
 
+import { ETAPAS } from './storage.js';
+
 export const ICONS = {
     plus: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"></path></svg>`,
     sparkles: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path></svg>`,
@@ -50,6 +52,69 @@ export const PRIORITY_STYLES = {
         dot: 'bg-coral-500'
     }
 };
+
+/**
+ * Estilos por etapa del proceso. Deliberadamente más sobrios que los de prioridad:
+ * la etapa es un dato administrativo, la prioridad es la señal que hay que mirar.
+ */
+export const STAGE_STYLES = {
+    'Nuevo': { accent: 'text-ink-muted', dot: 'bg-ink-faint', badge: 'bg-raised text-ink-muted' },
+    'Contactado': { accent: 'text-grape-300', dot: 'bg-grape-300', badge: 'bg-grape-900 text-grape-200' },
+    'En conversación': { accent: 'text-gold-500', dot: 'bg-gold-500', badge: 'bg-gold-900 text-gold-300' },
+    'Inscrito': { accent: 'text-coral-500', dot: 'bg-coral-500', badge: 'bg-coral-900 text-coral-200' },
+    'Perdido': { accent: 'text-ink-faint', dot: 'bg-line', badge: 'bg-raised text-ink-faint' }
+};
+
+/** Identificador seguro para usar en el DOM a partir del nombre de una etapa. */
+export function slug(texto) {
+    return String(texto)
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '');
+}
+
+/**
+ * Definición de las dos vistas del tablero.
+ * La de prioridad conserva los ids originales para no romper nada que dependa de ellos.
+ */
+export const VISTAS = {
+    prioridad: [
+        { key: 'unscored', titulo: 'Sin calificar', colId: 'col-unscored', countId: 'count-unscored', estilo: PRIORITY_STYLES['Sin calificar'], vacio: 'Sin prospectos por calificar.' },
+        { key: 'Baja', titulo: 'Prioridad Baja', colId: 'col-low', countId: 'count-low', estilo: PRIORITY_STYLES.Baja, vacio: 'Nada aquí todavía.' },
+        { key: 'Media', titulo: 'Prioridad Media', colId: 'col-medium', countId: 'count-medium', estilo: PRIORITY_STYLES.Media, vacio: 'Nada aquí todavía.' },
+        { key: 'Alta', titulo: 'Prioridad Alta', colId: 'col-high', countId: 'count-high', estilo: PRIORITY_STYLES.Alta, vacio: 'Nada aquí todavía.' }
+    ],
+    etapa: ETAPAS.map((etapa) => ({
+        key: etapa,
+        titulo: etapa,
+        colId: `col-etapa-${slug(etapa)}`,
+        countId: `count-etapa-${slug(etapa)}`,
+        estilo: STAGE_STYLES[etapa],
+        vacio: 'Nadie en esta etapa.'
+    }))
+};
+
+/**
+ * Estructura de las columnas del tablero.
+ * Se generan desde la configuración para que agregar una etapa no exija tocar el HTML,
+ * y para que las columnas repartan el ancho disponible en vez de medir 320px fijos.
+ */
+export function renderColumns(columnas) {
+    return columnas.map((col) => `
+        <div class="flex-1 basis-0 min-w-[13.5rem] flex flex-col bg-surface border border-line rounded-xl overflow-hidden">
+            <div class="px-3.5 py-3 border-b border-line flex justify-between items-center gap-2">
+                <span class="flex items-center gap-2 font-bold text-sm ${col.estilo.accent} truncate">
+                    <span class="w-2 h-2 rounded-full ${col.estilo.dot} shrink-0"></span>
+                    <span class="truncate">${escapeHTML(col.titulo)}</span>
+                </span>
+                <span id="${col.countId}" class="${col.estilo.badge} text-xs font-bold px-2 py-0.5 rounded-full tabular-nums shrink-0">0</span>
+            </div>
+            <div id="${col.colId}" class="p-2.5 flex-1 overflow-y-auto flex flex-col gap-2.5"></div>
+        </div>
+    `).join('');
+}
 
 /** Escapa texto del usuario: sin esto, un "<" en las notas rompe el tablero. */
 export function escapeHTML(value) {
@@ -147,22 +212,24 @@ export function renderMetrics(metrics, segments) {
         : `<span class="text-[11px] text-ink-faint">Nadie en espera: todos los leads calificados ya tienen mensaje.</span>`;
 
     return `
-        <div class="bg-surface border border-line rounded-xl p-5 flex flex-col gap-4">
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div class="bg-surface border border-line rounded-xl p-4 flex flex-col gap-3.5">
+            <div class="grid grid-cols-2 lg:grid-cols-5 gap-2.5">
                 ${kpiCard('Prospectos', String(metrics.total), `${metrics.sinCalificar} sin calificar${metrics.desdeConversacion ? ` · ${metrics.desdeConversacion} desde chat` : ''}`)}
                 ${kpiCard('Cobertura IA', `${metrics.cobertura}%`, `${metrics.calificados} calificados`, 'text-grape-300')}
                 ${kpiCard('Score promedio', metrics.scorePromedio === null ? '--' : String(metrics.scorePromedio), 'sobre 100', 'text-gold-500')}
                 ${kpiCard('Por contactar', String(metrics.pendientesContacto), `${metrics.contactados} con mensaje listo`, 'text-coral-500')}
+                ${kpiCard('Inscritos', String(metrics.inscritos), `${metrics.conversion}% de conversión`, 'text-coral-500')}
             </div>
 
-            <div>
-                <p class="text-[11px] font-semibold uppercase tracking-wider text-ink-faint mb-2">Distribución del embudo</p>
-                ${barra}
-            </div>
-
-            <div>
-                <p class="text-[11px] font-semibold uppercase tracking-wider text-ink-faint mb-2">Contactar ahora</p>
-                <div class="flex flex-wrap gap-2">${siguientes}</div>
+            <div class="grid md:grid-cols-2 gap-4">
+                <div>
+                    <p class="text-[11px] font-semibold uppercase tracking-wider text-ink-faint mb-2">Distribución por prioridad</p>
+                    ${barra}
+                </div>
+                <div>
+                    <p class="text-[11px] font-semibold uppercase tracking-wider text-ink-faint mb-2">Contactar ahora</p>
+                    <div class="flex flex-wrap gap-2">${siguientes}</div>
+                </div>
             </div>
         </div>
     `;
@@ -227,15 +294,27 @@ export function createCardHTML(lead) {
            </button>`
         : '';
 
+    // La etapa es editable desde la propia tarjeta: mover un lead no debería costar más de un clic.
+    const etapaActual = ETAPAS.includes(lead.etapa) ? lead.etapa : 'Nuevo';
+    const estiloEtapa = STAGE_STYLES[etapaActual];
+    const etapaBlock = `
+        <label class="flex items-center gap-1.5 mt-2.5 cursor-pointer">
+            <span class="sr-only">Etapa de ${escapeHTML(lead.nombre)}</span>
+            <span class="w-1.5 h-1.5 rounded-full ${estiloEtapa.dot} shrink-0"></span>
+            <select data-action="etapa" class="bg-transparent text-[11px] font-semibold ${estiloEtapa.accent} border-0 p-0 pr-4 focus:outline-none focus:ring-0 cursor-pointer hover:underline underline-offset-2">
+                ${ETAPAS.map((etapa) => `<option value="${escapeHTML(etapa)}" class="bg-surface text-ink"${etapa === etapaActual ? ' selected' : ''}>${escapeHTML(etapa)}</option>`).join('')}
+            </select>
+        </label>`;
+
     const metaBlock = calificado && lead.vecesAnalizado > 1
-        ? `<p class="text-[11px] text-ink-faint mt-2.5">Analizado ${lead.vecesAnalizado} veces</p>`
+        ? `<p class="text-[11px] text-ink-faint mt-1.5">Analizado ${lead.vecesAnalizado} veces</p>`
         : '';
 
     return `
         <article class="bg-surface hover:bg-raised rounded-xl p-4 border border-line border-l-[3px] ${styles.card} group transition-colors duration-200" data-id="${escapeHTML(lead.id)}">
             <div class="flex justify-between items-start mb-1.5 gap-2">
                 <h3 class="font-bold text-ink break-words leading-tight">${escapeHTML(lead.nombre)}</h3>
-                <div class="flex opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity gap-0.5 shrink-0">
+                <div class="card-actions flex opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity gap-0.5 shrink-0">
                     <button type="button" data-action="edit" class="text-ink-faint hover:text-gold-500 p-1 rounded transition" title="Editar" aria-label="Editar">${ICONS.pencil}</button>
                     <button type="button" data-action="delete" class="text-ink-faint hover:text-coral-500 p-1 rounded transition" title="Borrar" aria-label="Borrar">${ICONS.trash}</button>
                 </div>
@@ -245,6 +324,7 @@ export function createCardHTML(lead) {
             ${warningBlock}
             ${analyzeBlock}
             ${outreachBlock}
+            ${etapaBlock}
             ${metaBlock}
         </article>
     `;

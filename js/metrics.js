@@ -6,6 +6,8 @@
  * el vendedor no solo ve tarjetas, ve el estado de su cartera.
  */
 
+import { ETAPAS } from './storage.js';
+
 const PRIORIDADES = ['Alta', 'Media', 'Baja'];
 
 function esCalificado(lead) {
@@ -44,6 +46,13 @@ export function computeMetrics(leads) {
 
     const pendientes = lista.filter(esperaContacto);
 
+    const porEtapa = {};
+    for (const etapa of ETAPAS) porEtapa[etapa] = 0;
+    for (const lead of lista) {
+        if (porEtapa[lead.etapa] === undefined) porEtapa[lead.etapa] = 0;
+        porEtapa[lead.etapa] += 1;
+    }
+
     // A quién contactar ahora: primero los de score más alto, y a igualdad de score el más antiguo,
     // porque un lead que lleva días esperando se enfría.
     const siguientes = [...pendientes]
@@ -57,6 +66,9 @@ export function computeMetrics(leads) {
         cobertura: lista.length ? Math.round((calificados.length / lista.length) * 100) : 0,
         scorePromedio: calificados.length ? Math.round(sumaScores / calificados.length) : null,
         porPrioridad,
+        porEtapa,
+        inscritos: porEtapa['Inscrito'] || 0,
+        conversion: lista.length ? Math.round(((porEtapa['Inscrito'] || 0) / lista.length) * 100) : 0,
         pendientesContacto: pendientes.length,
         contactados: lista.filter((lead) => Boolean(lead.mensaje)).length,
         desdeConversacion: lista.filter((lead) => lead.origen === 'conversacion').length,

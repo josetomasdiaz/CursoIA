@@ -6,6 +6,16 @@
 const STORAGE_KEY = 'edulead_v1_prospects';
 const SCHEMA_VERSION = 1;
 
+/**
+ * Etapas del proceso de venta. Son independientes del score:
+ * el score dice qué tan caliente está el lead, la etapa dice dónde va en el proceso.
+ * Un lead puede ser prioridad Alta y estar recién en "Nuevo".
+ */
+export const ETAPAS = ['Nuevo', 'Contactado', 'En conversación', 'Inscrito', 'Perdido'];
+
+/** Etapas en las que el negocio ya se cerró, para un lado o para el otro. */
+export const ETAPAS_CERRADAS = ['Inscrito', 'Perdido'];
+
 export class StorageError extends Error {
     constructor(code, cause) {
         super(code);
@@ -35,6 +45,8 @@ function normalizeLead(lead) {
         curso: lead.curso ?? '',
         notas: lead.notas ?? '',
         estado: lead.estado === 'calificado' ? 'calificado' : 'no_calificado',
+        etapa: ETAPAS.includes(lead.etapa) ? lead.etapa : 'Nuevo',
+        etapaEn: lead.etapaEn ?? null,
         score: typeof lead.score === 'number' ? lead.score : null,
         probabilidad: ['Alta', 'Media', 'Baja'].includes(lead.probabilidad) ? lead.probabilidad : null,
         argumento: lead.argumento ?? null,
@@ -153,6 +165,11 @@ export function updateLead(id, updates) {
     // Si cambian las notas, el borrador de contacto queda obsoleto: citaba las notas viejas.
     if (notasCambiaron && current.mensaje && patch.mensaje === undefined) {
         Object.assign(patch, CAMPOS_MENSAJE);
+    }
+
+    // Se registra cuándo se movió de etapa, para poder medir el avance del embudo.
+    if (patch.etapa && patch.etapa !== current.etapa && patch.etapaEn === undefined) {
+        patch.etapaEn = new Date().toISOString();
     }
 
     leads[index] = normalizeLead({ ...current, ...patch });
