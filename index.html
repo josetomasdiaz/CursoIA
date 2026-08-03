@@ -72,7 +72,19 @@
         ::selection { background: #ED5543; color: #020202; }
 
         input::placeholder, textarea::placeholder { color: #52525B; }
+
+        /* En pantallas táctiles no existe el hover: si las acciones de la tarjeta
+           dependieran de él, en un tablet serían invisibles. */
+        @media (hover: none) {
+            .card-actions { opacity: 1; }
+        }
+
+        /* El menú nativo del selector de etapa hereda el fondo del sistema; se fuerza el oscuro. */
+        select option { background-color: #0C0C0C; color: #FDFDFD; }
     </style>
+
+    <!-- SheetJS para exportar a .xlsx. Si no carga, la app cae a CSV sola. -->
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body class="bg-night text-ink h-screen flex flex-col font-sans antialiased overflow-hidden">
 
@@ -187,55 +199,21 @@
             <!-- Panel de métricas del embudo -->
             <div id="metrics" class="shrink-0"></div>
 
-            <div class="flex-1 overflow-x-auto overflow-y-hidden">
-            <div id="board" class="flex gap-4 h-full min-w-max">
-
-                <!-- Columna: Sin calificar -->
-                <div class="w-80 flex flex-col bg-surface border border-line rounded-xl overflow-hidden">
-                    <div class="px-4 py-3 border-b border-line flex justify-between items-center">
-                        <span class="flex items-center gap-2 font-bold text-sm text-ink-muted">
-                            <span class="w-2 h-2 rounded-full bg-ink-faint"></span> Sin calificar
-                        </span>
-                        <span id="count-unscored" class="bg-raised text-ink-muted text-xs font-bold px-2 py-0.5 rounded-full tabular-nums">0</span>
-                    </div>
-                    <div id="col-unscored" class="p-3 flex-1 overflow-y-auto flex flex-col gap-3"></div>
+            <!-- Barra del tablero: cómo agrupar y exportación -->
+            <div class="shrink-0 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-2">
+                    <span class="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Agrupar por</span>
+                    <div id="view-toggle" class="flex gap-1 bg-surface border border-line rounded-lg p-1" role="group" aria-label="Agrupar el tablero por"></div>
                 </div>
 
-                <!-- Columna: Prioridad Baja -->
-                <div class="w-80 flex flex-col bg-surface border border-line rounded-xl overflow-hidden">
-                    <div class="px-4 py-3 border-b border-line flex justify-between items-center">
-                        <span class="flex items-center gap-2 font-bold text-sm text-grape-300">
-                            <span class="w-2 h-2 rounded-full bg-grape-300"></span> Prioridad Baja
-                        </span>
-                        <span id="count-low" class="bg-grape-900 text-grape-200 text-xs font-bold px-2 py-0.5 rounded-full tabular-nums">0</span>
-                    </div>
-                    <div id="col-low" class="p-3 flex-1 overflow-y-auto flex flex-col gap-3"></div>
-                </div>
-
-                <!-- Columna: Prioridad Media -->
-                <div class="w-80 flex flex-col bg-surface border border-line rounded-xl overflow-hidden">
-                    <div class="px-4 py-3 border-b border-line flex justify-between items-center">
-                        <span class="flex items-center gap-2 font-bold text-sm text-gold-500">
-                            <span class="w-2 h-2 rounded-full bg-gold-500"></span> Prioridad Media
-                        </span>
-                        <span id="count-medium" class="bg-gold-900 text-gold-300 text-xs font-bold px-2 py-0.5 rounded-full tabular-nums">0</span>
-                    </div>
-                    <div id="col-medium" class="p-3 flex-1 overflow-y-auto flex flex-col gap-3"></div>
-                </div>
-
-                <!-- Columna: Prioridad Alta -->
-                <div class="w-80 flex flex-col bg-surface border border-coral-900 rounded-xl overflow-hidden">
-                    <div class="px-4 py-3 border-b border-coral-900 flex justify-between items-center">
-                        <span class="flex items-center gap-2 font-bold text-sm text-coral-500">
-                            <span class="w-2 h-2 rounded-full bg-coral-500 animate-pulse"></span> Prioridad Alta
-                        </span>
-                        <span id="count-high" class="bg-coral-900 text-coral-200 text-xs font-bold px-2 py-0.5 rounded-full tabular-nums">0</span>
-                    </div>
-                    <div id="col-high" class="p-3 flex-1 overflow-y-auto flex flex-col gap-3"></div>
-                </div>
-
+                <button type="button" id="export-btn" class="flex items-center gap-2 text-sm font-semibold bg-surface border border-line text-ink px-3.5 py-2 rounded-lg hover:border-gold-500 hover:text-gold-500 transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"></path></svg>
+                    Descargar Excel
+                </button>
             </div>
-            </div>
+
+            <!-- Las columnas se generan desde js/ui.js según la vista elegida -->
+            <div id="board" class="flex-1 flex gap-3 overflow-x-auto min-h-0"></div>
         </section>
     </main>
 

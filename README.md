@@ -49,6 +49,7 @@ js/storage.js     Storage Controller: CRUD sobre localStorage con esquema versio
 js/metrics.js     Métricas del embudo: funciones puras sobre la lista de leads
 js/ui.js          Vista: iconos, estilos por prioridad, toasts, tarjetas y panel
 js/gemini.js      Gemini API Service: los tres prompts, llamada HTTP y validación del JSON
+js/export.js      Exportación del embudo a Excel, con respaldo en CSV
 js/app.js         Main App: orquesta eventos de la UI con storage, métricas y el servicio de IA
 ```
 
@@ -95,6 +96,30 @@ llamada inmediata en Alta y bajando la presión en Baja.
 El borrador es editable, se copia al portapapeles y queda guardado en el lead. Si después
 se editan las notas, el mensaje se descarta: citaba un contexto que ya no es cierto.
 
+### Etapas del embudo
+
+El score dice qué tan caliente está un lead; la etapa dice dónde va en el proceso. Son cosas
+distintas y ahora viven separadas: un prospecto puede ser prioridad Alta y estar recién en
+*Nuevo*. Las etapas son Nuevo, Contactado, En conversación, Inscrito y Perdido, y se cambian
+desde un selector en la propia tarjeta.
+
+El tablero se agrupa por lo que necesites: el conmutador **Agrupar por** alterna entre
+prioridad y etapa, y la elección queda recordada. Dentro de cada columna manda el score, así
+que arriba siempre está el lead más caliente. Sin esto, un alumno ya inscrito se quedaba para
+siempre en "Prioridad Alta" pidiendo que lo contactaran.
+
+### Exportación a Excel
+
+El botón **Descargar Excel** genera un `.xlsx` con dos hojas: *Resumen*, con los indicadores,
+el embudo por etapa y la distribución por prioridad; y *Prospectos*, con una fila por lead
+—etapa, prioridad, score, argumento de la IA, notas, origen, si tiene mensaje redactado y las
+fechas—, con filtros y fila congelada.
+
+Se apoya en SheetJS por CDN. Si esa librería no carga, la app **no falla**: cae a un CSV con
+separador punto y coma y BOM, que es lo que el Excel en español abre en columnas sin
+preguntar nada. La construcción de los datos es pura y está separada de la escritura del
+archivo, para poder probarla sin navegador.
+
 ### Panel de métricas del embudo
 
 Equivalente a *Insights and reports*. Sobre el tablero se muestran cuatro indicadores
@@ -134,6 +159,9 @@ Luego abre `http://localhost:8000`. En producción se sirve desde GitHub Pages.
    mensaje. Cámbiale el tono y vuelve a generar para ver cómo se ajusta.
 7. Mira el panel superior: la cobertura de IA y la fila **Contactar ahora** se actualizan a
    medida que calificas y redactas.
+8. Cambia la etapa de un lead desde su tarjeta y usa **Agrupar por → Etapa** para ver el
+   tablero como proceso de venta en vez de como ranking de prioridad.
+9. Presiona **Descargar Excel** para bajar el detalle completo del embudo.
 
 ## Modelo de datos
 
@@ -144,6 +172,8 @@ Luego abre `http://localhost:8000`. En producción se sirve desde GitHub Pages.
   "curso": "Cloud Architecture",
   "notas": "Presupuesto aprobado por su empresa...",
   "estado": "no_calificado | calificado",
+  "etapa": "Nuevo | Contactado | En conversación | Inscrito | Perdido",
+  "etapaEn": null,
   "score": null,
   "probabilidad": null,
   "argumento": null,
