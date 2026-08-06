@@ -101,7 +101,7 @@ export const VISTAS = {
  * Se generan desde la configuración para que agregar una etapa no exija tocar el HTML,
  * y para que las columnas repartan el ancho disponible en vez de medir 320px fijos.
  */
-export function renderColumns(columnas) {
+export function renderColumns(columnas, { soltable = false } = {}) {
     return columnas.map((col) => `
         <div class="flex-1 basis-0 min-w-[13.5rem] flex flex-col bg-surface border border-line rounded-xl overflow-hidden">
             <div class="px-3.5 py-3 border-b border-line flex justify-between items-center gap-2">
@@ -111,10 +111,16 @@ export function renderColumns(columnas) {
                 </span>
                 <span id="${col.countId}" class="${col.estilo.badge} text-xs font-bold px-2 py-0.5 rounded-full tabular-nums shrink-0">0</span>
             </div>
-            <div id="${col.colId}" class="p-2.5 flex-1 overflow-y-auto flex flex-col gap-2.5"></div>
+            <div id="${col.colId}"
+                 ${soltable ? `data-col-key="${escapeHTML(col.key)}"` : ''}
+                 class="p-2.5 flex-1 overflow-y-auto flex flex-col gap-2.5 border-2 border-transparent rounded-b-xl transition-colors">
+            </div>
         </div>
     `).join('');
 }
+
+/** Clases que marcan la columna sobre la que se va a soltar la tarjeta. */
+export const DROP_ACTIVO = ['border-coral-500', 'bg-coral-900/20'];
 
 /** Escapa texto del usuario: sin esto, un "<" en las notas rompe el tablero. */
 export function escapeHTML(value) {
@@ -276,8 +282,13 @@ export function renderEmptyState(text) {
     return `<p class="text-xs text-ink-faint text-center py-8 px-4 border border-dashed border-line rounded-lg">${escapeHTML(text)}</p>`;
 }
 
-/** HTML de una tarjeta de lead. */
-export function createCardHTML(lead) {
+/**
+ * HTML de una tarjeta de lead.
+ * @param {object} lead
+ * @param {{arrastrable?: boolean}} opciones arrastrable solo en la vista por etapa:
+ *        la prioridad la calcula la IA, así que no es algo que se mueva a mano.
+ */
+export function createCardHTML(lead, { arrastrable = false } = {}) {
     const calificado = lead.estado === 'calificado' && lead.probabilidad;
     const category = calificado ? lead.probabilidad : 'Sin calificar';
     const styles = PRIORITY_STYLES[category] || PRIORITY_STYLES['Sin calificar'];
@@ -333,7 +344,9 @@ export function createCardHTML(lead) {
         : '';
 
     return `
-        <article class="bg-surface hover:bg-raised rounded-xl p-4 border border-line border-l-[3px] ${styles.card} group transition-colors duration-200" data-id="${escapeHTML(lead.id)}">
+        <article ${arrastrable ? 'draggable="true"' : ''}
+                 class="bg-surface hover:bg-raised rounded-xl p-4 border border-line border-l-[3px] ${styles.card} group transition-colors duration-200 ${arrastrable ? 'cursor-grab active:cursor-grabbing' : ''}"
+                 data-id="${escapeHTML(lead.id)}">
             <div class="flex justify-between items-start mb-1.5 gap-2">
                 <h3 class="font-bold text-ink break-words leading-tight">${escapeHTML(lead.nombre)}</h3>
                 <div class="card-actions flex opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity gap-0.5 shrink-0">
