@@ -120,6 +120,15 @@ prioridad y etapa, y la elección queda recordada. Dentro de cada columna manda 
 que arriba siempre está el lead más caliente. Sin esto, un alumno ya inscrito se quedaba para
 siempre en "Prioridad Alta" pidiendo que lo contactaran.
 
+**Se arrastra, pero solo en la vista por etapa.** Mover una tarjeta de *Contactado* a
+*Inscrito* es un hecho del proceso y lo decide el vendedor; mover una de *Media* a *Alta*
+sería falsear el criterio de la IA, que es justamente lo que el producto promete. Por eso en
+la vista por prioridad las tarjetas no son arrastrables y el subtítulo explica el motivo.
+
+El arrastre usa el drag and drop nativo de HTML5, sin librerías. Como en pantallas táctiles
+esa API no existe, el selector de etapa de la tarjeta se mantiene: es el camino accesible y
+el que funciona con teclado.
+
 ### Exportación a Excel
 
 El botón **Descargar Excel** genera un `.xlsx` con dos hojas: *Resumen*, con los indicadores,
@@ -171,8 +180,8 @@ Luego abre `http://localhost:8000`. En producción se sirve desde GitHub Pages.
    mensaje. Cámbiale el tono y vuelve a generar para ver cómo se ajusta.
 7. Mira el panel superior: la cobertura de IA y la fila **Contactar ahora** se actualizan a
    medida que calificas y redactas.
-8. Cambia la etapa de un lead desde su tarjeta y usa **Agrupar por → Etapa** para ver el
-   tablero como proceso de venta en vez de como ranking de prioridad.
+8. Usa **Agrupar por → Etapa** para ver el tablero como proceso de venta en vez de como
+   ranking de prioridad, y arrastra una tarjeta de una columna a otra.
 9. Presiona **Descargar Excel** para bajar el detalle completo del embudo.
 
 ## Modelo de datos
