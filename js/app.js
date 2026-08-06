@@ -9,7 +9,7 @@ import {
 import { computeMetrics, distributionSegments } from './metrics.js';
 import {
     createCardHTML, renderEmptyState, renderMetrics, renderSegmented,
-    renderColumns, VISTAS, showToast, ICONS
+    renderColumns, VISTAS, DROP_ACTIVO, showToast, ICONS
 } from './ui.js';
 import { descargarEmbudo } from './export.js';
 import {
@@ -60,6 +60,7 @@ const modalStatus = document.getElementById('outreach-status');
 
 const viewToggle = document.getElementById('view-toggle');
 const exportBtn = document.getElementById('export-btn');
+const leadsSubtitle = document.getElementById('leads-subtitle');
 
 const navButtons = [...document.querySelectorAll('.nav-item')];
 const navLeadsCount = document.getElementById('nav-leads-count');
@@ -233,6 +234,8 @@ function columnaDe(lead, buckets) {
 function renderBoard() {
     const leads = getLeads();
     const columnas = VISTAS[vista];
+    // Solo se arrastra en la vista por etapa: la prioridad la decide la IA, no el mouse.
+    const arrastrable = vista === 'etapa';
 
     viewToggle.innerHTML = renderSegmented(
         Object.values(ETIQUETAS_VISTA),
@@ -240,7 +243,11 @@ function renderBoard() {
         'vista'
     );
 
-    board.innerHTML = renderColumns(columnas);
+    leadsSubtitle.textContent = arrastrable
+        ? 'Arrastra las tarjetas para moverlas de etapa.'
+        : 'Prioridad asignada por la IA. Agrupa por etapa para mover leads arrastrando.';
+
+    board.innerHTML = renderColumns(columnas, { soltable: arrastrable });
 
     const buckets = {};
     for (const col of columnas) buckets[col.key] = [];
@@ -253,7 +260,7 @@ function renderBoard() {
         );
 
         document.getElementById(col.colId).innerHTML = grupo.length
-            ? grupo.map(createCardHTML).join('')
+            ? grupo.map((lead) => createCardHTML(lead, { arrastrable })).join('')
             : renderEmptyState(col.vacio);
         document.getElementById(col.countId).textContent = String(grupo.length);
     }
@@ -751,6 +758,90 @@ board.addEventListener('click', async (event) => {
 
     if (action === 'analyze') {
         await analyzeLead(id);
+    }
+});
+
+/* ------------------------------ Arrastrar entre etapas ------------------------------ */
+/* Drag and drop nativo de HTML5, sin librerías. En pantallas táctiles no existe,
+   y por eso el selector de etapa de la tarjeta se mantiene: es el camino accesible. */
+
+let arrastrando = null;
+let zonaActiva = null;
+
+function resaltarZona(zona) {
+    if (zonaActiva === zona) return;
+    limpiarZona();
+    zonaActiva = zona;
+    if (zona) zona.classList.add(...DROP_ACTIVO);
+}
+
+function limpiarZona() {
+    if (zonaActiva) zonaActiva.classList.remove(...DROP_ACTIVO);
+    zonaActiva = null;
+}
+
+board.addEventListener('dragstart', (event) => {
+    const card = event.target.closest('[data-id][draggable="true"]');
+    if (!card) return;
+
+    arrastrando = card.dataset.id;
+    card.classList.add('opacity-40');
+
+    if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = 'move';
+        // Firefox no inicia el arrastre si no se escribe algo en el dataTransfer.
+        event.dataTransfer.setData('text/plain', arrastrando);
+    }
+});
+
+board.addEventListener('dragend', () => {
+    const card = arrastrando && board.querySelector(`[data-id="${CSS.escape(arrastrando)}"]`);
+    if (card) card.classList.remove('opacity-40');
+    arrastrando = null;
+    limpiarZona();
+});
+
+board.addEventListener('dragover', (event) => {
+    const zona = event.target.closest('[data-col-key]');
+    if (!zona) return;
+
+    // Sin preventDefault el navegador no permite soltar.
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+    resaltarZona(zona);
+});
+
+board.addEventListener('dragleave', (event) => {
+    const zona = event.target.closest('[data-col-key]');
+    if (zona && zona === zonaActiva && !zona.contains(event.relatedTarget)) limpiarZona();
+});
+
+board.addEventListener('drop', (event) => {
+    const zona = event.target.closest('[data-col-key]');
+    if (!zona) return;
+
+    event.preventDefault();
+    limpiarZona();
+
+    const id = event.dataTransfer?.getData('text/plain') || arrastrando;
+    arrastrando = null;
+    if (!id) return;
+
+    const lead = getLeadById(id);
+    if (!lead) {
+        renderBoard();
+        return;
+    }
+
+    const destino = zona.dataset.colKey;
+    if (!ETAPAS.includes(destino) || destino === lead.etapa) return;
+
+    try {
+        updateLead(id, { etapa: destino });
+        renderBoard();
+        showToast(`${lead.nombre} pasó a ${destino}.`, destino === 'Inscrito' ? 'success' : 'info');
+    } catch (error) {
+        reportError(error, 'No se pudo mover el prospecto.');
     }
 });
 
