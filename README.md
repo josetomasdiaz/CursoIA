@@ -93,6 +93,12 @@ Reimportar el mismo archivo no duplica nada: los repetidos se detectan por email
 email, por nombre más programa. El aviso final dice cuántos entraron, cuántos ya estaban y
 cuántas filas se ignoraron por venir sin nombre.
 
+**Los datos de contacto quedan a mano.** Al abrir un lead, el panel muestra el email y el
+teléfono en campos editables, cada uno con su botón de copiar, más un bloque *Datos del
+reporte* con origen, tipo de programa, descargas y las fechas de interacción. Ahí mismo hay
+accesos para escribir el correo o abrir WhatsApp: el número se limpia de espacios y símbolos
+para armar el enlace `wa.me`. En la tarjeta, el correo y el teléfono también son enlaces.
+
 ### Captura desde conversación
 
 En vez de digitar la ficha, se pega el chat de WhatsApp, el correo o las notas de una llamada,
