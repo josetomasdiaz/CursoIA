@@ -155,15 +155,6 @@ El arrastre usa el drag and drop nativo de HTML5, sin librerías. Como en pantal
 esa API no existe, el selector de etapa de la tarjeta se mantiene: es el camino accesible y
 el que funciona con teclado.
 
-**Se arrastra, pero solo en la vista por etapa.** Mover una tarjeta de *Contactado* a
-*Inscrito* es un hecho del proceso y lo decide el vendedor; mover una de *Media* a *Alta*
-sería falsear el criterio de la IA, que es justamente lo que el producto promete. Por eso en
-la vista por prioridad las tarjetas no son arrastrables y el subtítulo explica el motivo.
-
-El arrastre usa el drag and drop nativo de HTML5, sin librerías. Como en pantallas táctiles
-esa API no existe, el selector de etapa de la tarjeta se mantiene: es el camino accesible y
-el que funciona con teclado.
-
 ### Exportación a Excel
 
 El botón **Descargar Excel** genera un `.xlsx` con dos hojas: *Resumen*, con los indicadores,
