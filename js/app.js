@@ -10,7 +10,7 @@ import { importarCSV, mapearFilas } from './importar.js';
 import { computeMetrics, distributionSegments } from './metrics.js';
 import {
     createCardHTML, renderEmptyState, renderMetrics, renderSegmented,
-    renderColumns, VISTAS, DROP_ACTIVO, showToast, ICONS
+    renderColumns, renderDatosReporte, VISTAS, DROP_ACTIVO, showToast, ICONS
 } from './ui.js';
 import { descargarEmbudo } from './export.js';
 import {
@@ -25,6 +25,9 @@ const inputId = document.getElementById('lead-id');
 const inputName = document.getElementById('lead-name');
 const inputCourse = document.getElementById('lead-course');
 const inputNotes = document.getElementById('lead-notes');
+const inputEmail = document.getElementById('lead-email');
+const inputPhone = document.getElementById('lead-telefono');
+const reportData = document.getElementById('lead-report-data');
 const formTitle = document.getElementById('form-title');
 const submitLabel = document.getElementById('submit-label');
 const cancelEditBtn = document.getElementById('cancel-edit-btn');
@@ -213,6 +216,27 @@ function cerrarPanelLead() {
     leadPanel.classList.add('hidden');
     leadPanel.classList.remove('flex');
 }
+
+/* Botones de copiar del panel: dejan el dato en el portapapeles de un clic. */
+leadPanel.addEventListener('click', async (event) => {
+    const boton = event.target.closest('button[data-copiar]');
+    if (!boton) return;
+
+    const campo = document.getElementById(boton.dataset.copiar);
+    const valor = campo?.value.trim();
+    if (!valor) {
+        showToast('Ese campo está vacío.', 'warning');
+        return;
+    }
+
+    try {
+        await navigator.clipboard.writeText(valor);
+        showToast('Copiado al portapapeles.', 'success');
+    } catch (error) {
+        campo.select();
+        showToast('No se pudo copiar solo: el texto quedó seleccionado.', 'warning');
+    }
+});
 
 newLeadBtn.addEventListener('click', () => {
     exitEditMode();
@@ -404,11 +428,21 @@ function setCardRetrying(id, { attempt, switchingTo }) {
 
 /* ------------------------------ Formulario ------------------------------ */
 
+/** Muestra en el panel los datos que trae el reporte, si el lead los tiene. */
+function pintarDatosReporte(lead) {
+    const html = lead ? renderDatosReporte(lead) : '';
+    reportData.innerHTML = html;
+    reportData.classList.toggle('hidden', !html);
+}
+
 function enterEditMode(lead) {
     inputId.value = lead.id;
     inputName.value = lead.nombre;
     inputCourse.value = lead.curso;
     inputNotes.value = lead.notas;
+    inputEmail.value = lead.email || '';
+    inputPhone.value = lead.telefono || '';
+    pintarDatosReporte(lead);
     formTitle.textContent = `Editando: ${lead.nombre}`;
     submitLabel.textContent = 'Guardar cambios';
     cancelEditBtn.classList.remove('hidden');
@@ -419,6 +453,7 @@ function enterEditMode(lead) {
 function exitEditMode() {
     form.reset();
     inputId.value = '';
+    pintarDatosReporte(null);
     formTitle.textContent = 'Nuevo Prospecto';
     submitLabel.textContent = 'Guardar Lead';
     cancelEditBtn.classList.add('hidden');
@@ -438,7 +473,9 @@ form.addEventListener('submit', async (event) => {
     const data = {
         nombre: inputName.value.trim(),
         curso: inputCourse.value.trim(),
-        notas: inputNotes.value.trim()
+        notas: inputNotes.value.trim(),
+        email: inputEmail.value.trim() || null,
+        telefono: inputPhone.value.trim() || null
     };
 
     if (!data.nombre || !data.curso || !data.notas) {
