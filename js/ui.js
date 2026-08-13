@@ -235,7 +235,11 @@ export function renderMetrics(metrics, segments) {
     return `
         <div class="flex flex-col gap-5">
             <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
-                ${kpiCard('Prospectos', String(metrics.total), `${metrics.sinCalificar} sin calificar${metrics.desdeConversacion ? ` · ${metrics.desdeConversacion} desde chat` : ''}`)}
+                ${kpiCard('Prospectos', String(metrics.total), [
+                    `${metrics.sinCalificar} sin calificar`,
+                    metrics.desdeConversacion ? `${metrics.desdeConversacion} desde chat` : null,
+                    metrics.importados ? `${metrics.importados} importados` : null
+                ].filter(Boolean).join(' · '))}
                 ${kpiCard('Cobertura IA', `${metrics.cobertura}%`, `${metrics.calificados} calificados`, 'text-grape-300')}
                 ${kpiCard('Score promedio', metrics.scorePromedio === null ? '--' : String(metrics.scorePromedio), 'sobre 100', 'text-gold-500')}
                 ${kpiCard('Por contactar', String(metrics.pendientesContacto), `${metrics.contactados} con mensaje listo`, 'text-coral-500')}
@@ -317,6 +321,20 @@ export function createCardHTML(lead, { arrastrable = false } = {}) {
            </button>`
         : '';
 
+    // Datos que trae el reporte de interacción. Solo se muestran si existen.
+    const contacto = [lead.email, lead.telefono].filter(Boolean);
+    const senales = [];
+    if (lead.origen) senales.push(lead.origen);
+    if (Number.isFinite(lead.descargas) && lead.descargas > 0) senales.push(`${lead.descargas} descarga${lead.descargas === 1 ? '' : 's'}`);
+    if (lead.ultimaInteraccion) senales.push(`últ. ${lead.ultimaInteraccion}`);
+
+    const datosBlock = contacto.length || senales.length
+        ? `<div class="mb-2.5 flex flex-col gap-1">
+               ${contacto.length ? `<p class="text-[11px] text-ink-muted truncate" title="${escapeHTML(contacto.join(' · '))}">${escapeHTML(contacto.join(' · '))}</p>` : ''}
+               ${senales.length ? `<div class="flex flex-wrap gap-1">${senales.map((s) => `<span class="text-[10px] bg-raised border border-line text-ink-faint px-1.5 py-0.5 rounded">${escapeHTML(s)}</span>`).join('')}</div>` : ''}
+           </div>`
+        : '';
+
     // Primer contacto: solo tiene sentido ofrecerlo cuando el lead ya está priorizado.
     const outreachBlock = calificado && !lead.notasModificadas
         ? `<button type="button" data-action="outreach" class="w-full mt-2 ${lead.mensaje
@@ -354,7 +372,8 @@ export function createCardHTML(lead, { arrastrable = false } = {}) {
                     <button type="button" data-action="delete" class="text-ink-faint hover:text-coral-500 p-1 rounded transition" title="Borrar" aria-label="Borrar">${ICONS.trash}</button>
                 </div>
             </div>
-            <p class="text-[11px] text-ink-faint mb-3 font-semibold uppercase tracking-wide">${escapeHTML(lead.curso)}</p>
+            <p class="text-[11px] text-ink-faint mb-2.5 font-semibold uppercase tracking-wide">${escapeHTML(lead.curso)}</p>
+            ${datosBlock}
             ${scoreBlock}
             ${warningBlock}
             ${analyzeBlock}
