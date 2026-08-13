@@ -245,6 +245,13 @@
                         Cargar ejemplos
                     </button>
 
+                    <!-- Importación del reporte de interacción -->
+                    <input type="file" id="import-input" accept=".csv,.tsv,.txt,.xlsx,.xls" class="hidden">
+                    <button type="button" id="import-btn" class="flex items-center gap-2 text-sm font-semibold border border-line text-ink px-3 py-2 rounded-lg hover:border-gold-500 hover:text-gold-500 transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 9l5-5 5 5M12 4v12"></path></svg>
+                        <span id="import-btn-label">Importar reporte</span>
+                    </button>
+
                     <button type="button" id="new-lead-btn" class="flex items-center gap-2 bg-coral-500 text-night text-sm font-bold px-3.5 py-2 rounded-lg hover:bg-coral-400 active:bg-coral-600 transition shadow-lg shadow-coral-900/40">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"></path></svg>
                         Nuevo prospecto
