@@ -49,6 +49,7 @@ js/storage.js     Storage Controller: CRUD sobre localStorage con esquema versio
 js/metrics.js     Métricas del embudo: funciones puras sobre la lista de leads
 js/ui.js          Vista: iconos, estilos por prioridad, toasts, tarjetas y panel
 js/gemini.js      Gemini API Service: los tres prompts, llamada HTTP y validación del JSON
+js/importar.js    Lectura de reportes CSV o Excel: parser, alias de columnas y redacción de notas
 js/export.js      Exportación del embudo a Excel, con respaldo en CSV
 js/app.js         Main App: orquesta eventos de la UI con storage, métricas y el servicio de IA
 ```
@@ -66,6 +67,31 @@ haciendo clic fuera. Eso libera el ancho completo para el tablero, que es lo que
 hay que mirar. Con el menú de 208px, las cuatro columnas caben desde ~1160px de ancho; antes
 del rediseño hacían falta 1696px y la columna de Prioridad Alta quedaba cortada en cualquier
 notebook.
+
+### Importar el reporte de interacción
+
+El botón **Importar reporte** carga un CSV o un Excel y deja los prospectos en el embudo. El
+formato de referencia es el reporte de interacción de Mine-Class —`Nombre`, `Email`,
+`Teléfono`, `Programas`, `Tipo`, `Descargas`, `Primera interacción`, `Última interacción`,
+`Origen`—, pero el mapeo va por alias, así que tolera otros nombres de columna y otro orden.
+
+El parser está escrito a mano y aguanta lo que traen los archivos reales: BOM, CRLF,
+separador coma o punto y coma detectado automáticamente, comas dentro de comillas, comillas
+escapadas y filas vacías al final.
+
+Dos decisiones que vale la pena conocer:
+
+- **El reporte no trae notas, así que se redactan.** El scoring necesita señales comerciales,
+  y el archivo entrega programa, tipo, origen, descargas y fechas. Con eso se compone una nota
+  legible: si la primera y la última interacción son distintas, la nota dice que el prospecto
+  volvió, que es justo la señal que importa.
+- **Los datos personales no van a la IA.** El email y el teléfono se guardan en el lead y se
+  muestran en la tarjeta, pero quedan fuera de las notas que se envían a Gemini: no aportan
+  nada al puntaje y no hay razón para mandarlos a un tercero.
+
+Reimportar el mismo archivo no duplica nada: los repetidos se detectan por email, y si no hay
+email, por nombre más programa. El aviso final dice cuántos entraron, cuántos ya estaban y
+cuántas filas se ignoraron por venir sin nombre.
 
 ### Captura desde conversación
 
