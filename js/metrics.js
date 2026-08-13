@@ -71,7 +71,8 @@ export function computeMetrics(leads) {
         conversion: lista.length ? Math.round(((porEtapa['Inscrito'] || 0) / lista.length) * 100) : 0,
         pendientesContacto: pendientes.length,
         contactados: lista.filter((lead) => Boolean(lead.mensaje)).length,
-        desdeConversacion: lista.filter((lead) => lead.origen === 'conversacion').length,
+        desdeConversacion: lista.filter((lead) => lead.origenCarga === 'conversacion').length,
+        importados: lista.filter((lead) => lead.origenCarga === 'importado').length,
         siguientes
     };
 }
