@@ -3,9 +3,10 @@
  */
 
 import {
-    getLeads, getLeadById, saveLead, updateLead, deleteLead,
+    getLeads, getLeadById, saveLead, saveLeads, updateLead, deleteLead,
     seedDemoLeads, isStorageAvailable, StorageError, ETAPAS
 } from './storage.js';
+import { importarCSV, mapearFilas } from './importar.js';
 import { computeMetrics, distributionSegments } from './metrics.js';
 import {
     createCardHTML, renderEmptyState, renderMetrics, renderSegmented,
@@ -61,6 +62,9 @@ const modalStatus = document.getElementById('outreach-status');
 const viewToggle = document.getElementById('view-toggle');
 const exportBtn = document.getElementById('export-btn');
 const leadsSubtitle = document.getElementById('leads-subtitle');
+const importBtn = document.getElementById('import-btn');
+const importBtnLabel = document.getElementById('import-btn-label');
+const importInput = document.getElementById('import-input');
 
 const navButtons = [...document.querySelectorAll('.nav-item')];
 const navLeadsCount = document.getElementById('nav-leads-count');
@@ -291,6 +295,70 @@ viewToggle.addEventListener('click', (event) => {
     renderBoard();
 });
 
+/* ------------------------------ Importar reporte ------------------------------ */
+
+importBtn.addEventListener('click', () => importInput.click());
+
+/** Lee una hoja de Excel usando SheetJS, que ya está cargado para exportar. */
+async function filasDesdeExcel(archivo) {
+    const XLSX = window.XLSX;
+    if (!XLSX?.read) throw new Error('SIN_SHEETJS');
+
+    const libro = XLSX.read(await archivo.arrayBuffer(), { type: 'array' });
+    const hoja = libro.Sheets[libro.SheetNames[0]];
+    return XLSX.utils.sheet_to_json(hoja, { header: 1, blankrows: false, defval: '' });
+}
+
+importInput.addEventListener('change', async (event) => {
+    const archivo = event.target.files && event.target.files[0];
+    if (!archivo) return;
+
+    importBtn.disabled = true;
+    importBtnLabel.textContent = 'Leyendo...';
+
+    try {
+        const esExcel = /\.(xlsx|xls)$/i.test(archivo.name);
+        const { leads, ignoradas, columnas } = esExcel
+            ? mapearFilas(await filasDesdeExcel(archivo))
+            : importarCSV(await archivo.text());
+
+        if (!leads.length) {
+            const motivo = ignoradas[0]?.motivo === 'No se encontró una columna de nombre'
+                ? `No encontré una columna de nombre. El archivo trae: ${columnas.join(', ')}`
+                : 'El archivo no trae filas con datos.';
+            showToast(motivo, 'error');
+            return;
+        }
+
+        const { insertados, duplicados } = saveLeads(leads);
+
+        mostrarSeccion('leads');
+        renderBoard();
+
+        const detalles = [];
+        if (duplicados) detalles.push(`${duplicados} ya estaban`);
+        if (ignoradas.length) detalles.push(`${ignoradas.length} sin nombre`);
+
+        showToast(
+            insertados.length
+                ? `Se importaron ${insertados.length} prospectos${detalles.length ? ` (${detalles.join(', ')})` : ''}.`
+                : `Nada nuevo: los ${duplicados} prospectos del archivo ya estaban cargados.`,
+            insertados.length ? 'success' : 'info'
+        );
+    } catch (error) {
+        if (error?.message === 'SIN_SHEETJS') {
+            showToast('No se pudo leer el Excel porque SheetJS no cargó. Exporta el archivo como CSV.', 'error');
+        } else {
+            reportError(error, 'No se pudo leer el archivo.');
+        }
+    } finally {
+        importBtn.disabled = false;
+        importBtnLabel.textContent = 'Importar reporte';
+        // Se limpia para poder volver a elegir el mismo archivo.
+        importInput.value = '';
+    }
+});
+
 exportBtn.addEventListener('click', () => {
     const leads = getLeads();
     if (!leads.length) {
@@ -390,7 +458,7 @@ form.addEventListener('submit', async (event) => {
         } else {
             const creado = saveLead({
                 ...data,
-                origen: procedencia ? 'conversacion' : 'manual',
+                origenCarga: procedencia ? 'conversacion' : 'manual',
                 canalOrigen: procedencia?.canal ?? null
             });
             nuevoId = creado.id;
