@@ -11,10 +11,14 @@ import { ETAPAS } from './storage.js';
 
 const CABECERA_PROSPECTOS = [
     'Nombre', 'Curso de interés', 'Etapa', 'Prioridad', 'Score',
-    'Argumento de la IA', 'Notas', 'Origen', 'Canal de origen',
+    'Argumento de la IA', 'Notas', 'Cómo ingresó', 'Canal de origen',
+    'Email', 'Teléfono', 'Tipo', 'Descargas', 'Origen del lead',
+    'Primera interacción', 'Última interacción',
     'Mensaje redactado', 'Canal del mensaje', 'Veces analizado',
     'Creado', 'Calificado', 'Último cambio de etapa'
 ];
+
+const COMO_INGRESO = { conversacion: 'Conversación', importado: 'Importado', manual: 'Manual' };
 
 /** Fecha legible para Excel. Devuelve cadena vacía si no hay dato. */
 function fecha(valor) {
@@ -40,8 +44,15 @@ export function filasProspectos(leads) {
             Number.isFinite(lead.score) ? lead.score : '',
             lead.argumento || '',
             lead.notas || '',
-            lead.origen === 'conversacion' ? 'Conversación' : 'Manual',
+            COMO_INGRESO[lead.origenCarga] || 'Manual',
             lead.canalOrigen || '',
+            lead.email || '',
+            lead.telefono || '',
+            lead.tipo || '',
+            Number.isFinite(lead.descargas) ? lead.descargas : '',
+            lead.origen || '',
+            lead.primeraInteraccion || '',
+            lead.ultimaInteraccion || '',
             lead.mensaje ? 'Sí' : 'No',
             lead.mensajeCanal || '',
             lead.vecesAnalizado || 0,
@@ -132,8 +143,10 @@ export function descargarEmbudo(leads, metrics) {
 
         const hojaProspectos = XLSX.utils.aoa_to_sheet(prospectos);
         hojaProspectos['!cols'] = [
-            { wch: 22 }, { wch: 22 }, { wch: 16 }, { wch: 12 }, { wch: 7 },
-            { wch: 46 }, { wch: 60 }, { wch: 13 }, { wch: 14 },
+            { wch: 22 }, { wch: 30 }, { wch: 16 }, { wch: 12 }, { wch: 7 },
+            { wch: 46 }, { wch: 60 }, { wch: 14 }, { wch: 14 },
+            { wch: 30 }, { wch: 16 }, { wch: 14 }, { wch: 10 }, { wch: 14 },
+            { wch: 17 }, { wch: 17 },
             { wch: 10 }, { wch: 14 }, { wch: 8 },
             { wch: 17 }, { wch: 17 }, { wch: 17 }
         ];
