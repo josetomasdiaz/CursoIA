@@ -60,9 +60,17 @@ function normalizeLead(lead) {
         mensajeTono: lead.mensajeTono ?? null,
         mensajeGancho: lead.mensajeGancho ?? null,
         mensajeEn: lead.mensajeEn ?? null,
-        // Procedencia: manual o extraído de una conversación pegada
-        origen: lead.origen === 'conversacion' ? 'conversacion' : 'manual',
+        // Procedencia dentro de la app: manual, conversacion o importado
+        origenCarga: ['conversacion', 'importado'].includes(lead.origenCarga) ? lead.origenCarga : 'manual',
         canalOrigen: lead.canalOrigen ?? null,
+        // Datos que trae el reporte de interacción
+        email: lead.email ?? null,
+        telefono: lead.telefono ?? null,
+        tipo: lead.tipo ?? null,
+        descargas: Number.isFinite(lead.descargas) ? lead.descargas : null,
+        primeraInteraccion: lead.primeraInteraccion ?? null,
+        ultimaInteraccion: lead.ultimaInteraccion ?? null,
+        origen: lead.origen ?? null,
         createdAt: Number(lead.createdAt) || Date.now()
     };
 }
@@ -127,15 +135,11 @@ export function getLeadById(id) {
 }
 
 /** Crea un lead nuevo, siempre en estado no_calificado. */
-export function saveLead({ nombre, curso, notas, origen, canalOrigen }) {
+export function saveLead(datos) {
     const leads = readRaw();
     const newLead = normalizeLead({
+        ...datos,
         id: newId(),
-        nombre,
-        curso,
-        notas,
-        origen,
-        canalOrigen,
         estado: 'no_calificado',
         createdAt: Date.now()
     });
@@ -143,6 +147,46 @@ export function saveLead({ nombre, curso, notas, origen, canalOrigen }) {
     leads.push(newLead);
     writeRaw(leads);
     return newLead;
+}
+
+/** Clave para detectar repetidos: el email si existe, si no el nombre más el curso. */
+function claveDuplicado(lead) {
+    const email = String(lead.email || '').trim().toLowerCase();
+    if (email) return 'email:' + email;
+    return 'nc:' + String(lead.nombre || '').trim().toLowerCase() + '|' + String(lead.curso || '').trim().toLowerCase();
+}
+
+/**
+ * Alta masiva. Escribe una sola vez en localStorage y descarta los que ya existen,
+ * porque un reporte de interacción se descarga varias veces y se repite.
+ * @returns {{insertados: Array<object>, duplicados: number}}
+ */
+export function saveLeads(lista) {
+    const leads = readRaw();
+    const existentes = new Set(leads.map(claveDuplicado));
+    const insertados = [];
+    let duplicados = 0;
+    let t = Date.now();
+
+    for (const datos of Array.isArray(lista) ? lista : []) {
+        const candidato = normalizeLead({
+            ...datos,
+            id: newId(),
+            estado: 'no_calificado',
+            // createdAt distinto por lead para que el orden dentro de la columna sea estable.
+            createdAt: t++
+        });
+
+        const clave = claveDuplicado(candidato);
+        if (existentes.has(clave)) { duplicados += 1; continue; }
+
+        existentes.add(clave);
+        leads.push(candidato);
+        insertados.push(candidato);
+    }
+
+    if (insertados.length) writeRaw(leads);
+    return { insertados, duplicados };
 }
 
 /**
