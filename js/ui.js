@@ -122,6 +122,49 @@ export function renderColumns(columnas, { soltable = false } = {}) {
 /** Clases que marcan la columna sobre la que se va a soltar la tarjeta. */
 export const DROP_ACTIVO = ['border-coral-500', 'bg-coral-900/20'];
 
+/** Solo dígitos, para armar el enlace de WhatsApp desde un teléfono con formato libre. */
+export function soloDigitos(telefono) {
+    return String(telefono ?? '').replace(/\D/g, '');
+}
+
+/**
+ * Bloque de datos que vienen del reporte de interacción y no se editan a mano.
+ * Se muestra en el panel del lead para poder rescatarlos después.
+ */
+export function renderDatosReporte(lead) {
+    const filas = [
+        ['Origen del lead', lead.origen],
+        ['Tipo de programa', lead.tipo],
+        ['Descargas', Number.isFinite(lead.descargas) ? String(lead.descargas) : null],
+        ['Primera interacción', lead.primeraInteraccion],
+        ['Última interacción', lead.ultimaInteraccion]
+    ].filter(([, valor]) => valor);
+
+    if (!filas.length) return '';
+
+    const acciones = [];
+    if (lead.email) {
+        acciones.push(`<a href="mailto:${encodeURIComponent(lead.email)}" class="text-grape-300 hover:text-ink underline underline-offset-2">Escribir correo</a>`);
+    }
+    if (soloDigitos(lead.telefono).length >= 8) {
+        acciones.push(`<a href="https://wa.me/${soloDigitos(lead.telefono)}" target="_blank" rel="noopener noreferrer" class="text-grape-300 hover:text-ink underline underline-offset-2">Abrir WhatsApp</a>`);
+    }
+
+    return `
+        <div class="bg-raised border border-line rounded-lg px-3 py-2.5">
+            <p class="text-[11px] font-semibold uppercase tracking-wider text-ink-faint mb-2">Datos del reporte</p>
+            <dl class="flex flex-col gap-1">
+                ${filas.map(([etiqueta, valor]) => `
+                    <div class="flex justify-between gap-3 text-[11px]">
+                        <dt class="text-ink-faint shrink-0">${escapeHTML(etiqueta)}</dt>
+                        <dd class="text-ink-muted text-right break-words">${escapeHTML(valor)}</dd>
+                    </div>`).join('')}
+            </dl>
+            ${acciones.length ? `<div class="flex flex-wrap gap-3 mt-2.5 text-[11px]">${acciones.join('')}</div>` : ''}
+        </div>
+    `;
+}
+
 /** Escapa texto del usuario: sin esto, un "<" en las notas rompe el tablero. */
 export function escapeHTML(value) {
     return String(value ?? '')
@@ -322,15 +365,26 @@ export function createCardHTML(lead, { arrastrable = false } = {}) {
         : '';
 
     // Datos que trae el reporte de interacción. Solo se muestran si existen.
-    const contacto = [lead.email, lead.telefono].filter(Boolean);
     const senales = [];
     if (lead.origen) senales.push(lead.origen);
     if (Number.isFinite(lead.descargas) && lead.descargas > 0) senales.push(`${lead.descargas} descarga${lead.descargas === 1 ? '' : 's'}`);
     if (lead.ultimaInteraccion) senales.push(`últ. ${lead.ultimaInteraccion}`);
 
-    const datosBlock = contacto.length || senales.length
+    // El contacto se muestra como enlaces: un clic escribe el correo o abre WhatsApp.
+    const enlaces = [];
+    if (lead.email) {
+        enlaces.push(`<a href="mailto:${encodeURIComponent(lead.email)}" title="${escapeHTML(lead.email)}" class="text-[11px] text-ink-muted hover:text-gold-500 underline underline-offset-2 truncate">${escapeHTML(lead.email)}</a>`);
+    }
+    if (lead.telefono) {
+        const digitos = soloDigitos(lead.telefono);
+        enlaces.push(digitos.length >= 8
+            ? `<a href="https://wa.me/${digitos}" target="_blank" rel="noopener noreferrer" title="Abrir WhatsApp" class="text-[11px] text-ink-muted hover:text-gold-500 underline underline-offset-2">${escapeHTML(lead.telefono)}</a>`
+            : `<span class="text-[11px] text-ink-muted">${escapeHTML(lead.telefono)}</span>`);
+    }
+
+    const datosBlock = enlaces.length || senales.length
         ? `<div class="mb-2.5 flex flex-col gap-1">
-               ${contacto.length ? `<p class="text-[11px] text-ink-muted truncate" title="${escapeHTML(contacto.join(' · '))}">${escapeHTML(contacto.join(' · '))}</p>` : ''}
+               ${enlaces.length ? `<div class="flex flex-col gap-0.5 min-w-0">${enlaces.join('')}</div>` : ''}
                ${senales.length ? `<div class="flex flex-wrap gap-1">${senales.map((s) => `<span class="text-[10px] bg-raised border border-line text-ink-faint px-1.5 py-0.5 rounded">${escapeHTML(s)}</span>`).join('')}</div>` : ''}
            </div>`
         : '';
